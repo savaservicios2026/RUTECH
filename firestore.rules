@@ -1,9 +1,27 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Only signed-in RUTECH workers can read and change data
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    function signedIn() { return request.auth != null; }
+    function roleDoc() { return /databases/$(database)/documents/roles/$(request.auth.token.email); }
+    function hasRole() { return signedIn() && exists(roleDoc()); }
+    function isOffice() { return hasRole() && get(roleDoc()).data.role == 'oficina'; }
+    function isTech() { return hasRole() && get(roleDoc()).data.role == 'tecnico'; }
+
+    match /roles/{email} {
+      allow read: if signedIn() && (request.auth.token.email == email || isOffice());
+      allow write: if isOffice();
+    }
+    match /technicians/{id} {
+      allow read: if hasRole();
+      allow write: if isOffice();
+    }
+    match /services/{id} {
+      allow read: if hasRole();
+      allow create, delete: if isOffice();
+      allow update: if isOffice() || (isTech()
+        && resource.data.assignedTechnicianId == get(roleDoc()).data.technicianId
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'estimatedDuration', 'inSituReport']));
     }
   }
 }

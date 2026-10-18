@@ -28,6 +28,7 @@ interface WorkerViewProps {
   onUpdateJobStatus: (serviceId: string, status: JobStatus, notes?: string) => void;
   onSelectTechnician?: (techId: string) => void;
   onOpenInSituModal?: (service: ServiceJob) => void;
+  initialTechnicianId?: string;
 }
 
 export const WorkerView: React.FC<WorkerViewProps> = ({
@@ -36,8 +37,9 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
   selectedDate,
   onUpdateJobStatus,
   onOpenInSituModal,
+  initialTechnicianId,
 }) => {
-  const [activeTechId, setActiveTechId] = useState<string>(technicians[0]?.id || '');
+  const [activeTechId, setActiveTechId] = useState<string>(initialTechnicianId || technicians[0]?.id || '');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [completionNotes, setCompletionNotes] = useState<string>('');
 

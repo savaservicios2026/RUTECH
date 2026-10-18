@@ -33,6 +33,7 @@ interface HeaderProps {
   onOpenNotifications: () => void;
   unreadNotificationsCount: number;
   isOptimizing?: boolean;
+  canEdit?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -49,6 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenNotifications,
   unreadNotificationsCount,
   isOptimizing = false,
+  canEdit = true,
 }) => {
   return (
     <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md">
@@ -141,6 +143,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
+            {canEdit && (<>
             <button
               onClick={onOptimize}
               disabled={isOptimizing}
@@ -172,6 +175,7 @@ export const Header: React.FC<HeaderProps> = ({
               <Users className="w-3.5 h-3.5 text-blue-400" />
               <span className="hidden sm:inline">Técnico</span>
             </button>
+            </>)}
 
             <button
               onClick={onOpenExport}

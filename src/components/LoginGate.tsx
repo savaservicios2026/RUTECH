@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, User } from 'firebase/auth';
-import { LogIn } from 'lucide-react';
+import { LogIn, LogOut } from 'lucide-react';
 import logoSava from '../assets/logo-sava.png?inline';
-import { getFirebaseAuth, isFirebaseEnabled } from '../utils/firebase';
+import { getFirebaseAuth, getRole, isFirebaseEnabled, signOutUser } from '../utils/firebase';
+import { Access, AccessContext } from '../utils/access';
 
 /**
  * In the standalone app every worker signs in with the email and password created for them
- * in Firebase. Inside Claude, or before Firebase is configured, the app opens directly.
+ * in Firebase, and gets the role the office gave them (roles/{email}). Inside Claude, or before
+ * Firebase is configured, the app opens directly with full access.
  */
 export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const insideClaude = Boolean((window as any).claude?.use);
@@ -17,17 +19,65 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [access, setAccess] = useState<Access | 'none' | null>(null);
 
   useEffect(() => {
     if (!needsLogin) return;
     const auth = getFirebaseAuth()!;
     return onAuthStateChanged(auth, (u) => {
       setUser(u);
+      setAccess(null);
       setChecking(false);
     });
   }, [needsLogin]);
 
-  if (!needsLogin || user) return <>{children}</>;
+  useEffect(() => {
+    if (!user?.email) return;
+    const email = user.email.toLowerCase();
+    let cancelled = false;
+    const load = () =>
+      getRole(email)
+        .then((r) => {
+          if (cancelled) return;
+          if (r?.role === 'oficina') setAccess({ role: 'oficina', email });
+          else if (r?.role === 'tecnico' && r.technicianId) setAccess({ role: 'tecnico', email, technicianId: r.technicianId });
+          else setAccess('none');
+        })
+        // No connection yet and nothing cached: try again shortly
+        .catch(() => { if (!cancelled) setTimeout(load, 3000); });
+    load();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  if (!needsLogin) return <>{children}</>;
+
+  if (user && access && access !== 'none') {
+    return <AccessContext.Provider value={access}>{children}</AccessContext.Provider>;
+  }
+
+  if (user) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4 shadow-2xl text-center">
+          <div className="rounded-xl bg-white p-3">
+            <img src={logoSava} alt="SAVA servicios deportivos" className="w-full" />
+          </div>
+          {access === 'none' ? (
+            <>
+              <p className="text-sm text-slate-200">Tu usuario ({user.email}) todavía no tiene permisos en RUTECH.</p>
+              <p className="text-xs text-slate-400">Pide a la oficina que ponga este email en tu ficha de técnico.</p>
+            </>
+          ) : (
+            <p className="text-sm text-slate-400">Cargando tus permisos…</p>
+          )}
+          <button onClick={() => signOutUser()}
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2.5">
+            <LogOut className="w-4 h-4" /> Salir
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

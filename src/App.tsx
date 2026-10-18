@@ -24,6 +24,8 @@ import { ExportModal } from './components/ExportModal';
 import { AnalyticsView } from './components/AnalyticsView';
 import { NotificationsModal } from './components/NotificationsModal';
 import { useCloudCollection } from './utils/cloudSync';
+import { useAccess, READ_ONLY_MESSAGE, TECHNICIAN_EDITABLE_FIELDS } from './utils/access';
+import { ensureTechnicianRole, isFirebaseEnabled, signOutUser } from './utils/firebase';
 import { WorkerView } from './components/WorkerView';
 import { InSituModal } from './components/InSituModal';
 import { 
@@ -32,16 +34,18 @@ import {
   getNotificationPermissionState 
 } from './utils/notifications';
 import { JobStatus } from './types';
-import { CheckCircle2, RotateCcw, AlertTriangle, Zap, Sparkles, Bell } from 'lucide-react';
+import { CheckCircle2, RotateCcw, LogOut, AlertTriangle, Zap, Sparkles, Bell } from 'lucide-react';
 
 export default function App() {
+  const access = useAccess();
+  const canEdit = access.role === 'oficina';
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
   const [currentTab, setCurrentTab] = useState<'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker'>('map');
 
   // Load from localStorage or initial mock data
-  const [technicians, setTechnicians] = useState<Technician[]>(() => {
+  const [technicians, setTechniciansState] = useState<Technician[]>(() => {
     try {
       const saved = localStorage.getItem('rutatech_technicians_v3');
       return saved ? JSON.parse(saved) : INITIAL_TECHNICIANS;
@@ -50,7 +54,7 @@ export default function App() {
     }
   });
 
-  const [services, setServices] = useState<ServiceJob[]>(() => {
+  const [services, setServicesState] = useState<ServiceJob[]>(() => {
     try {
       const saved = localStorage.getItem('rutatech_services_v3');
       return saved ? JSON.parse(saved) : INITIAL_SERVICES;
@@ -134,8 +138,62 @@ export default function App() {
   }, [services]);
 
   // Shared data: office, technicians and Claude work on the same technicians and services
-  useCloudCollection('technicians', technicians, setTechnicians, true);
-  useCloudCollection('services', services, setServices);
+  useCloudCollection('technicians', technicians, setTechniciansState, canEdit);
+  useCloudCollection('services', services, setServicesState);
+
+  // Edits made in the app go through these: office staff change anything, technicians only
+  // report progress on their own jobs (the database rules enforce the same).
+  const techniciansRef = useRef(technicians);
+  techniciansRef.current = technicians;
+  const servicesRef = useRef(services);
+  servicesRef.current = services;
+
+  const setTechnicians = (next: React.SetStateAction<Technician[]>) => {
+    if (!canEdit) {
+      showToast(READ_ONLY_MESSAGE);
+      return;
+    }
+    setTechniciansState(next);
+  };
+
+  const setServices = (next: React.SetStateAction<ServiceJob[]>) => {
+    if (canEdit) {
+      setServicesState(next);
+      return;
+    }
+    const prev = servicesRef.current;
+    const proposed = typeof next === 'function' ? next(prev) : next;
+    const before = new Map(prev.map((s) => [s.id, s]));
+    const allowed =
+      proposed.length === prev.length &&
+      proposed.every((s) => {
+        const old = before.get(s.id);
+        if (!old) return false;
+        if (old === s) return true;
+        const changed = Object.keys({ ...old, ...s }).filter(
+          (k) => JSON.stringify((old as any)[k]) !== JSON.stringify((s as any)[k])
+        );
+        if (changed.length === 0) return true;
+        return (
+          access.role === 'tecnico' &&
+          old.assignedTechnicianId === access.technicianId &&
+          changed.every((k) => TECHNICIAN_EDITABLE_FIELDS.includes(k))
+        );
+      });
+    if (!allowed) {
+      showToast(READ_ONLY_MESSAGE);
+      return;
+    }
+    setServicesState(proposed);
+  };
+
+  // Office: each technician's email in their record becomes their login to see the app
+  useEffect(() => {
+    if (!canEdit || !isFirebaseEnabled() || (window as any).claude?.use) return;
+    technicians.forEach((t) => {
+      if (t.email && t.email.includes('@')) ensureTechnicianRole(t.email.trim(), t.id).catch(() => {});
+    });
+  }, [technicians, canEdit]);
 
   useEffect(() => {
     try { localStorage.setItem('rutatech_notifications_v3', JSON.stringify(notifications)); } catch {}
@@ -590,6 +648,7 @@ export default function App() {
         onOpenNotifications={() => setIsNotificationsModalOpen(true)}
         unreadNotificationsCount={notifications.filter(n => !n.read).length}
         isOptimizing={isOptimizing}
+        canEdit={canEdit}
       />
 
       {/* Main Content Area */}
@@ -702,6 +761,7 @@ export default function App() {
             services={updatedServices}
             selectedDate={selectedDate}
             onUpdateJobStatus={handleUpdateJobStatus}
+            initialTechnicianId={access.role === 'tecnico' ? access.technicianId : undefined}
             onSelectTechnician={(id) => setSelectedTechnicianId(id)}
             onOpenInSituModal={(service) => {
               setServiceForInSitu(service);
@@ -720,6 +780,17 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            {access.email && (
+              <button
+                onClick={() => signOutUser()}
+                className="flex items-center gap-1 text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
+                title={`Cerrar sesión de ${access.email}`}
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Salir ({access.email})</span>
+              </button>
+            )}
+            {canEdit && (
             <button
               onClick={handleResetData}
               className="flex items-center gap-1 text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
@@ -728,6 +799,7 @@ export default function App() {
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Restablecer datos de muestra</span>
             </button>
+            )}
           </div>
         </div>
       </footer>

@@ -1,5 +1,5 @@
 import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import { getAuth, signOut, Auth } from 'firebase/auth';
 import {
   initializeFirestore,
   persistentLocalCache,
@@ -9,6 +9,7 @@ import {
   onSnapshot,
   setDoc,
   deleteDoc,
+  getDoc,
   Firestore,
 } from 'firebase/firestore';
 import { FIREBASE_CONFIG } from '../firebaseConfig';
@@ -67,4 +68,30 @@ export function getFirestoreStore() {
       };
     },
   };
+}
+
+export type RoleRecord = { role: 'oficina' | 'tecnico'; technicianId?: string };
+
+/** The role the office gave this login (roles/{email}), or null if it has none. */
+export async function getRole(email: string): Promise<RoleRecord | null> {
+  init();
+  if (!firestore) return null;
+  const snap = await getDoc(doc(firestore, 'roles', email.toLowerCase()));
+  return snap.exists() ? (snap.data() as RoleRecord) : null;
+}
+
+/** Office only: gives a technician's login email access to their own jobs. */
+export async function ensureTechnicianRole(email: string, technicianId: string): Promise<void> {
+  init();
+  if (!firestore) return;
+  const ref = doc(firestore, 'roles', email.toLowerCase());
+  const current = await getDoc(ref);
+  const data = current.exists() ? (current.data() as RoleRecord) : null;
+  if (data?.role === 'oficina' || (data?.role === 'tecnico' && data.technicianId === technicianId)) return;
+  await setDoc(ref, { role: 'tecnico', technicianId });
+}
+
+export async function signOutUser(): Promise<void> {
+  init();
+  if (auth) await signOut(auth);
 }
