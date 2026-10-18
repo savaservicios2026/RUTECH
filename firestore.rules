@@ -17,6 +17,39 @@ service cloud.firestore {
       allow update: if isTech() && id == get(roleDoc()).data.technicianId
         && request.resource.data.email == resource.data.email;
     }
+    // Breakdown tickets: customers send them from the public form without signing in.
+    // Each one takes the next number from counters/tickets in the same transaction.
+    function counterDoc() { return /databases/$(database)/documents/counters/tickets; }
+    function shortText(v, max) { return v is string && v.size() <= max; }
+    function validTicket(t) {
+      return t.keys().hasOnly(['id', 'seq', 'number', 'createdAt', 'source', 'customerName', 'facility',
+          'customerPhone', 'customerEmail', 'machine', 'problem', 'description', 'urgency', 'location',
+          'mediaCount', 'status', 'serviceId'])
+        && shortText(t.customerName, 100) && t.customerName.size() > 0
+        && shortText(t.customerPhone, 30) && t.customerPhone.size() > 0
+        && shortText(t.problem, 150) && t.problem.size() > 0
+        && (!('description' in t) || shortText(t.description, 2000))
+        && t.urgency in ['baja', 'media', 'alta', 'urgente']
+        && t.status == 'nuevo'
+        && t.mediaCount is int && t.mediaCount <= 4
+        && t.seq == getAfter(counterDoc()).data.n;
+    }
+    match /counters/{id} {
+      allow get: if id == 'tickets';
+      allow create: if id == 'tickets' && request.resource.data.n == 1;
+      allow update: if id == 'tickets' && request.resource.data.n == resource.data.n + 1;
+    }
+    match /tickets/{id} {
+      allow create: if validTicket(request.resource.data) && request.resource.data.id == id;
+    }
+    match /ticketMedia/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['ticketId', 'type', 'name', 'dataUrl'])
+        && request.resource.data.type in ['image', 'video']
+        && shortText(request.resource.data.dataUrl, 1000000)
+        && existsAfter(/databases/$(database)/documents/tickets/$(request.resource.data.ticketId))
+        && !exists(/databases/$(database)/documents/tickets/$(request.resource.data.ticketId));
+    }
+
     // Any other section (vans and future ones): everyone with a role reads, office edits
     match /{section}/{id} {
       allow read: if hasRole() && section != 'roles';

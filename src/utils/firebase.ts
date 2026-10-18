@@ -32,6 +32,11 @@ export function isFirebaseEnabled(): boolean {
   return FIREBASE_CONFIG !== null;
 }
 
+export function getFirestoreDb(): Firestore | null {
+  init();
+  return firestore;
+}
+
 export function getFirebaseAuth(): Auth | null {
   init();
   return auth;

@@ -15,14 +15,15 @@ import {
   TrendingUp,
   Bell,
   Smartphone,
-  Truck
+  Truck,
+  AlertOctagon
 } from 'lucide-react';
 import logoSava from '../assets/logo-sava-dark.png?inline';
 import { OptimizationMetrics } from '../types';
 
 interface HeaderProps {
-  currentTab: 'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans';
-  setCurrentTab: (tab: 'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans') => void;
+  currentTab: 'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans' | 'tickets';
+  setCurrentTab: (tab: 'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans' | 'tickets') => void;
   selectedDate: string;
   setSelectedDate: (date: string) => void;
   metrics: OptimizationMetrics;
@@ -36,6 +37,7 @@ interface HeaderProps {
   isOptimizing?: boolean;
   canEdit?: boolean;
   vanWarningsCount?: number;
+  newTicketsCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -54,6 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
   isOptimizing = false,
   canEdit = true,
   vanWarningsCount = 0,
+  newTicketsCount = 0,
 }) => {
   return (
     <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md">
@@ -256,6 +259,23 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Users className="w-4 h-4" />
             <span>Equipo Técnico ({metrics.totalActiveTechs} activos)</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentTab('tickets')}
+            className={`flex items-center gap-2 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+              currentTab === 'tickets'
+                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <AlertOctagon className="w-4 h-4" />
+            <span>Averías</span>
+            {newTicketsCount > 0 && (
+              <span className="text-[10px] font-bold bg-rose-500 text-white rounded-full px-1.5 py-0.5" title="Avisos pendientes">
+                {newTicketsCount}
+              </span>
+            )}
           </button>
 
           <button

@@ -3,6 +3,8 @@ import {
   Technician, 
   ServiceJob, 
   Van,
+  Ticket,
+  TicketStatus,
   TechnicianRouteSummary, 
   OptimizationMetrics 
 } from './types';
@@ -30,6 +32,8 @@ import { ensureTechnicianRole, isFirebaseEnabled, signOutUser } from './utils/fi
 import { WorkerView } from './components/WorkerView';
 import { InSituModal } from './components/InSituModal';
 import { VansView, countVanWarnings } from './components/VansView';
+import { TicketsView } from './components/TicketsView';
+import { zoneCenter } from './utils/tickets';
 import { 
   AppNotification, 
   sendWebPushNotification, 
@@ -44,7 +48,7 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
-  const [currentTab, setCurrentTab] = useState<'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans'>('map');
+  const [currentTab, setCurrentTab] = useState<'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans' | 'tickets'>('map');
 
   // Load from localStorage or initial mock data
   const [technicians, setTechniciansState] = useState<Technician[]>(() => {
@@ -156,6 +160,46 @@ export default function App() {
     try { localStorage.setItem('rutech_vans_v1', JSON.stringify(vans)); } catch {}
   }, [vans]);
   useCloudCollection('vans', vans, setVansState);
+
+  // Breakdown tickets from customers and the office (created straight in the database by the form)
+  const [tickets, setTicketsState] = useState<Ticket[]>([]);
+  useCloudCollection('tickets', tickets, setTicketsState);
+  const [convertingTicketId, setConvertingTicketId] = useState<string | null>(null);
+
+  const setTicketStatus = (ticketId: string, status: TicketStatus, serviceId?: string) => {
+    if (!canEdit) return showToast(READ_ONLY_MESSAGE);
+    setTicketsState((prev) =>
+      prev.map((t) => (t.id === ticketId ? { ...t, status, serviceId: serviceId ?? (status === 'nuevo' ? null : t.serviceId ?? null) } : t))
+    );
+  };
+
+  // Pre-fills a work order from a ticket; it is saved as a new service from the service form
+  const openServiceFromTicket = (ticket: Ticket) => {
+    const point =
+      ticket.location.lat != null && ticket.location.lng != null
+        ? { lat: ticket.location.lat, lng: ticket.location.lng }
+        : zoneCenter(ticket.location.zone);
+    const draft: ServiceJob = {
+      id: `srv-${Date.now()}`,
+      code: ticket.number,
+      customerName: ticket.facility ? `${ticket.facility} (${ticket.customerName})` : ticket.customerName,
+      customerPhone: ticket.customerPhone,
+      title: ticket.problem,
+      description: [`Aviso ${ticket.number}`, ticket.machine && `Máquina: ${ticket.machine}`, ticket.description].filter(Boolean).join('\n'),
+      location: { address: ticket.location.address, lat: point.lat, lng: point.lng, zone: ticket.location.zone || 'Ruta Nacional / Norte' },
+      date: new Date().toISOString().split('T')[0],
+      timeSlot: { type: 'manana', label: 'Mañana (09:00 - 13:00)', startHour: '09:00', endHour: '13:00' },
+      estimatedDuration: 60,
+      priority: ticket.urgency,
+      requiredSkills: ['Postventa Multimarca'],
+      status: 'pendiente',
+      assignedTechnicianId: null,
+      manualOrder: 99,
+    };
+    setConvertingTicketId(ticket.id);
+    setServiceToEdit(draft);
+    setIsServiceModalOpen(true);
+  };
 
   // Edits made in the app go through these: office staff change anything, technicians report
   // progress on their own jobs and keep their own record up to date (the database rules match).
@@ -682,6 +726,7 @@ export default function App() {
         isOptimizing={isOptimizing}
         canEdit={canEdit}
         vanWarningsCount={countVanWarnings(vans)}
+        newTicketsCount={tickets.filter((t) => t.status === 'nuevo').length}
       />
 
       {/* Main Content Area */}
@@ -777,6 +822,24 @@ export default function App() {
           />
         )}
 
+        {currentTab === 'tickets' && (
+          <TicketsView
+            tickets={tickets}
+            services={services}
+            technicians={technicians}
+            canEdit={canEdit}
+            onCreateService={openServiceFromTicket}
+            onSetStatus={(id, status) => setTicketStatus(id, status)}
+            onOpenService={(serviceId) => {
+              const job = services.find((s) => s.id === serviceId);
+              if (!job) return showToast('Ese parte de trabajo ya no existe');
+              setServiceToEdit(job);
+              setIsServiceModalOpen(true);
+            }}
+            showToast={showToast}
+          />
+        )}
+
         {currentTab === 'vans' && (
           <VansView
             vans={vans}
@@ -861,10 +924,14 @@ export default function App() {
         onClose={() => {
           setIsServiceModalOpen(false);
           setServiceToEdit(null);
+          setConvertingTicketId(null);
         }}
         serviceToEdit={serviceToEdit}
         technicians={technicians}
-        onSave={handleSaveService}
+        onSave={(job) => {
+          handleSaveService(job);
+          if (convertingTicketId) setTicketStatus(convertingTicketId, 'convertido', job.id);
+        }}
       />
 
       <TechnicianModal

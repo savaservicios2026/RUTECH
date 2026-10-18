@@ -241,3 +241,34 @@ export interface Van {
   maintenances: VanMaintenance[];
   notes?: string;
 }
+
+// Breakdown tickets ("avisos de avería") sent by customers through the public form or by the office
+export type TicketStatus = 'nuevo' | 'convertido' | 'cerrado';
+
+export interface Ticket {
+  id: string;
+  seq: number;
+  number: string; // e.g. "AV-0007"
+  createdAt: string; // ISO date-time
+  source: 'cliente' | 'oficina';
+  customerName: string;
+  facility?: string; // gym / installation name
+  customerPhone: string;
+  customerEmail?: string;
+  machine?: string; // brand / model
+  problem: string;
+  description?: string;
+  urgency: PriorityType;
+  location: { address: string; lat?: number | null; lng?: number | null; zone?: string };
+  mediaCount: number;
+  status: TicketStatus;
+  serviceId?: string | null;
+}
+
+export interface TicketMedia {
+  id: string;
+  ticketId: string;
+  type: 'image' | 'video';
+  name: string;
+  dataUrl: string;
+}
