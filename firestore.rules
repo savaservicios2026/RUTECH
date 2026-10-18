@@ -17,6 +17,10 @@ service cloud.firestore {
       allow update: if isTech() && id == get(roleDoc()).data.technicianId
         && request.resource.data.email == resource.data.email;
     }
+    match /vans/{id} {
+      allow read: if hasRole();
+      allow write: if isOffice();
+    }
     match /services/{id} {
       allow read: if hasRole();
       allow create, delete: if isOffice();

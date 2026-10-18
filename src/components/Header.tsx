@@ -14,14 +14,15 @@ import {
   Wrench,
   TrendingUp,
   Bell,
-  Smartphone
+  Smartphone,
+  Truck
 } from 'lucide-react';
 import logoSava from '../assets/logo-sava.png?inline';
 import { OptimizationMetrics } from '../types';
 
 interface HeaderProps {
-  currentTab: 'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker';
-  setCurrentTab: (tab: 'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker') => void;
+  currentTab: 'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans';
+  setCurrentTab: (tab: 'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans') => void;
   selectedDate: string;
   setSelectedDate: (date: string) => void;
   metrics: OptimizationMetrics;
@@ -34,6 +35,7 @@ interface HeaderProps {
   unreadNotificationsCount: number;
   isOptimizing?: boolean;
   canEdit?: boolean;
+  vanWarningsCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -51,6 +53,7 @@ export const Header: React.FC<HeaderProps> = ({
   unreadNotificationsCount,
   isOptimizing = false,
   canEdit = true,
+  vanWarningsCount = 0,
 }) => {
   return (
     <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md">
@@ -253,6 +256,23 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Users className="w-4 h-4" />
             <span>Equipo Técnico ({metrics.totalActiveTechs} activos)</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentTab('vans')}
+            className={`flex items-center gap-2 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+              currentTab === 'vans'
+                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <Truck className="w-4 h-4" />
+            <span>Furgonetas</span>
+            {vanWarningsCount > 0 && (
+              <span className="text-[10px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5" title="ITV o mantenimiento vencido o en menos de 30 días">
+                {vanWarningsCount}
+              </span>
+            )}
           </button>
 
           <button

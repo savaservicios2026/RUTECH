@@ -220,3 +220,24 @@ export interface OptimizationMetrics {
   totalKmSavedEstimate: number;
   totalActiveTechs: number;
 }
+
+// Company vans: plate, maintenance history and next ITV, shared through the `vans` collection
+export interface VanMaintenance {
+  id: string;
+  date: string; // YYYY-MM-DD
+  description: string;
+  km?: number;
+}
+
+export interface Van {
+  id: string;
+  model: string;
+  plate: string;
+  driverTechnicianId?: string | null;
+  isElectric?: boolean;
+  km?: number;
+  nextItv?: string; // YYYY-MM-DD
+  nextMaintenance?: string; // YYYY-MM-DD
+  maintenances: VanMaintenance[];
+  notes?: string;
+}

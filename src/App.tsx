@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Technician, 
   ServiceJob, 
+  Van,
   TechnicianRouteSummary, 
   OptimizationMetrics 
 } from './types';
@@ -28,6 +29,7 @@ import { useAccess, READ_ONLY_MESSAGE, TECHNICIAN_EDITABLE_FIELDS } from './util
 import { ensureTechnicianRole, isFirebaseEnabled, signOutUser } from './utils/firebase';
 import { WorkerView } from './components/WorkerView';
 import { InSituModal } from './components/InSituModal';
+import { VansView, countVanWarnings } from './components/VansView';
 import { 
   AppNotification, 
   sendWebPushNotification, 
@@ -42,7 +44,7 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
-  const [currentTab, setCurrentTab] = useState<'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker'>('map');
+  const [currentTab, setCurrentTab] = useState<'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans'>('map');
 
   // Load from localStorage or initial mock data
   const [technicians, setTechniciansState] = useState<Technician[]>(() => {
@@ -140,6 +142,20 @@ export default function App() {
   // Shared data: office, technicians and Claude work on the same technicians and services
   useCloudCollection('technicians', technicians, setTechniciansState, canEdit);
   useCloudCollection('services', services, setServicesState);
+
+  // Company vans (plate, maintenance, ITV); only office staff change them
+  const [vans, setVansState] = useState<Van[]>(() => {
+    try {
+      const saved = localStorage.getItem('rutech_vans_v1');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('rutech_vans_v1', JSON.stringify(vans)); } catch {}
+  }, [vans]);
+  useCloudCollection('vans', vans, setVansState);
 
   // Edits made in the app go through these: office staff change anything, technicians report
   // progress on their own jobs and keep their own record up to date (the database rules match).
@@ -665,6 +681,7 @@ export default function App() {
         unreadNotificationsCount={notifications.filter(n => !n.read).length}
         isOptimizing={isOptimizing}
         canEdit={canEdit}
+        vanWarningsCount={countVanWarnings(vans)}
       />
 
       {/* Main Content Area */}
@@ -757,6 +774,24 @@ export default function App() {
             }}
             onDeleteTechnician={handleDeleteTechnician}
             onToggleAvailability={handleToggleAvailability}
+          />
+        )}
+
+        {currentTab === 'vans' && (
+          <VansView
+            vans={vans}
+            technicians={technicians}
+            canEdit={canEdit}
+            onSaveVan={(van) => {
+              if (!canEdit) return showToast(READ_ONLY_MESSAGE);
+              setVansState((prev) => (prev.some((v) => v.id === van.id) ? prev.map((v) => (v.id === van.id ? van : v)) : [...prev, van]));
+              showToast(`Furgoneta ${van.plate} guardada`);
+            }}
+            onDeleteVan={(vanId) => {
+              if (!canEdit) return showToast(READ_ONLY_MESSAGE);
+              setVansState((prev) => prev.filter((v) => v.id !== vanId));
+              showToast('Furgoneta borrada');
+            }}
           />
         )}
 
