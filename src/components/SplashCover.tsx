@@ -21,7 +21,7 @@ export const SplashCover: React.FC = () => {
   return (
     <div
       onClick={() => setPhase('fade')}
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-6 bg-slate-900 px-6 transition-opacity duration-400 motion-reduce:transition-none ${
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-[#686bac] to-[#33366e] px-6 transition-opacity duration-400 motion-reduce:transition-none ${
         phase === 'fade' ? 'opacity-0' : 'opacity-100'
       }`}
     >
@@ -30,7 +30,7 @@ export const SplashCover: React.FC = () => {
       </div>
       <div className="text-center">
         <div className="text-2xl font-bold tracking-wide text-white">RUTECH</div>
-        <div className="text-sm text-slate-400">Planificador de rutas técnicas</div>
+        <div className="text-sm text-indigo-100">Planificador de rutas técnicas</div>
       </div>
     </div>
   );

@@ -57,7 +57,7 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
 
   if (user) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-b from-[#686bac] to-[#33366e] flex items-center justify-center p-4">
         <div className="w-full max-w-sm bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4 shadow-2xl text-center">
           <div className="rounded-xl bg-white p-3">
             <img src={logoSava} alt="SAVA servicios deportivos" className="w-full" />
@@ -93,7 +93,7 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-b from-[#686bac] to-[#33366e] flex items-center justify-center p-4">
       <form onSubmit={handleSubmit} className="w-full max-w-sm bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4 shadow-2xl">
         <div className="rounded-xl bg-white p-3">
           <img src={logoSava} alt="SAVA servicios deportivos" className="w-full" />
@@ -120,7 +120,7 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
             </label>
             {error && <p className="text-sm text-red-400">{error}</p>}
             <button type="submit" disabled={busy}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-semibold py-2.5">
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#5a5ea8] hover:bg-[#686bac] disabled:opacity-60 text-white font-semibold py-2.5">
               <LogIn className="w-4 h-4" /> {busy ? 'Entrando…' : 'Entrar'}
             </button>
           </>
