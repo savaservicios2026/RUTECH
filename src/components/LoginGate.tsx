@@ -57,7 +57,7 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
 
   if (user) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#0f2a52] to-[#071631] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-b from-[#1f4f94] via-[#0d2650] to-[#040c1f] flex items-center justify-center p-4">
         <div className="w-full max-w-sm bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4 shadow-2xl text-center">
           <div className="rounded-xl bg-white p-3">
             <img src={logoSava} alt="SAVA servicios deportivos" className="w-full" />
@@ -93,7 +93,7 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0f2a52] to-[#071631] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-b from-[#1f4f94] via-[#0d2650] to-[#040c1f] flex items-center justify-center p-4">
       <form onSubmit={handleSubmit} className="w-full max-w-sm bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4 shadow-2xl">
         <div className="rounded-xl bg-white p-3">
           <img src={logoSava} alt="SAVA servicios deportivos" className="w-full" />
