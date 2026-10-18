@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import logoSava from '../assets/logo-sava.png?inline';
+import logoSava from '../assets/logo-sava-dark.png?inline';
 
 /** Opening cover with the SAVA logo; fades out on its own or with a tap. */
 export const SplashCover: React.FC = () => {
@@ -25,7 +25,7 @@ export const SplashCover: React.FC = () => {
         phase === 'fade' ? 'opacity-0' : 'opacity-100'
       }`}
     >
-      <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl">
+      <div className="w-full max-w-sm px-2">
         <img src={logoSava} alt="SAVA servicios deportivos" className="w-full" />
       </div>
       <div className="text-center">

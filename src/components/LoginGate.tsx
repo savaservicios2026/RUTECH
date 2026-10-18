@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, User } from 'firebase/auth';
 import { LogIn, LogOut } from 'lucide-react';
-import logoSava from '../assets/logo-sava.png?inline';
+import logoSava from '../assets/logo-sava-dark.png?inline';
 import { getFirebaseAuth, getRole, isFirebaseEnabled, signOutUser } from '../utils/firebase';
 import { Access, AccessContext } from '../utils/access';
 
@@ -58,8 +58,8 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
   if (user) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#1f4f94] via-[#0d2650] to-[#040c1f] flex items-center justify-center p-4">
-        <div className="w-full max-w-sm bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4 shadow-2xl text-center">
-          <div className="rounded-xl bg-white p-3">
+        <div className="w-full max-w-sm bg-white/5 border border-white/10 backdrop-blur rounded-2xl p-6 space-y-4 shadow-2xl text-center">
+          <div className="px-2 py-1">
             <img src={logoSava} alt="SAVA servicios deportivos" className="w-full" />
           </div>
           {access === 'none' ? (
@@ -94,8 +94,8 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1f4f94] via-[#0d2650] to-[#040c1f] flex items-center justify-center p-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4 shadow-2xl">
-        <div className="rounded-xl bg-white p-3">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white/5 border border-white/10 backdrop-blur rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div className="px-2 py-1">
           <img src={logoSava} alt="SAVA servicios deportivos" className="w-full" />
         </div>
         <div className="flex items-center gap-3">

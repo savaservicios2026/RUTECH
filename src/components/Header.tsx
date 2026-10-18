@@ -17,7 +17,7 @@ import {
   Smartphone,
   Truck
 } from 'lucide-react';
-import logoSava from '../assets/logo-sava.png?inline';
+import logoSava from '../assets/logo-sava-dark.png?inline';
 import { OptimizationMetrics } from '../types';
 
 interface HeaderProps {
@@ -63,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Logo & Brand */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="h-12 shrink-0 rounded-lg bg-white px-1.5 py-1">
+              <div className="h-12 shrink-0 py-0.5">
                 <img src={logoSava} alt="SAVA servicios deportivos" className="h-full w-auto" />
               </div>
               <div>
