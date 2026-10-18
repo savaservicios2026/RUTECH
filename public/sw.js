@@ -1,6 +1,6 @@
 // RUTECH service worker: keeps the app shell available offline.
 // Pages are fetched network-first so new versions show up as soon as there is signal.
-const CACHE = 'rutech-shell-v1';
+const CACHE = 'rutech-shell-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'])));
