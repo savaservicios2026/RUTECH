@@ -10,4 +10,11 @@ export const FIREBASE_CONFIG: null | {
   storageBucket?: string;
   messagingSenderId?: string;
   appId: string;
-} = null;
+} = {
+  apiKey: "AIzaSyBuBlY62FvQhA3aJ-JDJgxVexgs1Kay4Uo",
+  authDomain: "rutech-61f25.firebaseapp.com",
+  projectId: "rutech-61f25",
+  storageBucket: "rutech-61f25.firebasestorage.app",
+  messagingSenderId: "720563381196",
+  appId: "1:720563381196:web:bc1f2ce7bb84a66742b369",
+};

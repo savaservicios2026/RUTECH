@@ -134,7 +134,7 @@ export default function App() {
   }, [services]);
 
   // Shared data: office, technicians and Claude work on the same technicians and services
-  useCloudCollection('technicians', technicians, setTechnicians);
+  useCloudCollection('technicians', technicians, setTechnicians, true);
   useCloudCollection('services', services, setServices);
 
   useEffect(() => {

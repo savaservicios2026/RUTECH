@@ -40,13 +40,16 @@ export type CloudStatus = 'local' | 'connecting' | 'synced' | 'error';
 export function useCloudCollection<T extends WithId>(
   collectionName: string,
   items: T[],
-  setItems: (items: T[]) => void
+  setItems: (items: T[]) => void,
+  seedIfEmpty = false
 ): CloudStatus {
   const [status, setStatus] = useState<CloudStatus>('connecting');
   const collectionRef = useRef<any>(null);
   const syncedRef = useRef<Map<string, string>>(new Map());
   const loadedRef = useRef(false);
   const writeChainsRef = useRef<Map<string, Promise<void>>>(new Map());
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
 
   // Subscribe once to the shared collection
   useEffect(() => {
@@ -62,6 +65,15 @@ export function useCloudCollection<T extends WithId>(
       collectionRef.current = col;
       unsubscribe = col.onSnapshot(
         (snap: any) => {
+          // A brand-new shared store starts from this device's data instead of wiping it
+          if (seedIfEmpty && !loadedRef.current && snap.docs.length === 0) {
+            if (snap.fromCache) return;
+            syncedRef.current = new Map();
+            loadedRef.current = true;
+            setItems([...itemsRef.current]);
+            setStatus('synced');
+            return;
+          }
           const next = new Map<string, string>();
           const docs: T[] = snap.docs.map((d: any) => {
             const data = { ...(d.data() as object), id: d.id } as T;

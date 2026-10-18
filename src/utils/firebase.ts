@@ -44,10 +44,17 @@ export function getFirestoreStore() {
   return {
     collection(name: string) {
       return {
-        onSnapshot(next: (snap: { docs: { id: string; data(): object }[] }) => void, error: (e: unknown) => void) {
+        onSnapshot(
+          next: (snap: { docs: { id: string; data(): object }[]; fromCache: boolean }) => void,
+          error: (e: unknown) => void
+        ) {
           return onSnapshot(
             collection(fs, name),
-            (snap) => next({ docs: snap.docs.map((d) => ({ id: d.id, data: () => d.data() })) }),
+            (snap) =>
+              next({
+                docs: snap.docs.map((d) => ({ id: d.id, data: () => d.data() })),
+                fromCache: snap.metadata.fromCache,
+              }),
             error
           );
         },
