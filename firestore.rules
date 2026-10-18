@@ -14,6 +14,8 @@ service cloud.firestore {
     match /technicians/{id} {
       allow read: if hasRole();
       allow write: if isOffice();
+      allow update: if isTech() && id == get(roleDoc()).data.technicianId
+        && request.resource.data.email == resource.data.email;
     }
     match /services/{id} {
       allow read: if hasRole();
@@ -21,7 +23,7 @@ service cloud.firestore {
       allow update: if isOffice() || (isTech()
         && resource.data.assignedTechnicianId == get(roleDoc()).data.technicianId
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['status', 'estimatedDuration', 'inSituReport']));
+             .hasOnly(['status', 'estimatedDuration', 'inSituReport', 'manualOrder']));
     }
   }
 }

@@ -141,19 +141,35 @@ export default function App() {
   useCloudCollection('technicians', technicians, setTechniciansState, canEdit);
   useCloudCollection('services', services, setServicesState);
 
-  // Edits made in the app go through these: office staff change anything, technicians only
-  // report progress on their own jobs (the database rules enforce the same).
+  // Edits made in the app go through these: office staff change anything, technicians report
+  // progress on their own jobs and keep their own record up to date (the database rules match).
   const techniciansRef = useRef(technicians);
   techniciansRef.current = technicians;
   const servicesRef = useRef(services);
   servicesRef.current = services;
 
   const setTechnicians = (next: React.SetStateAction<Technician[]>) => {
-    if (!canEdit) {
+    if (canEdit) {
+      setTechniciansState(next);
+      return;
+    }
+    // A technician may update their own record (availability, schedule), but not their login email
+    const prev = techniciansRef.current;
+    const proposed = typeof next === 'function' ? next(prev) : next;
+    const before = new Map(prev.map((t) => [t.id, t]));
+    const allowed =
+      proposed.length === prev.length &&
+      proposed.every((t) => {
+        const old = before.get(t.id);
+        if (!old) return false;
+        if (JSON.stringify(old) === JSON.stringify(t)) return true;
+        return access.role === 'tecnico' && t.id === access.technicianId && t.email === old.email;
+      });
+    if (!allowed) {
       showToast(READ_ONLY_MESSAGE);
       return;
     }
-    setTechniciansState(next);
+    setTechniciansState(proposed);
   };
 
   const setServices = (next: React.SetStateAction<ServiceJob[]>) => {
