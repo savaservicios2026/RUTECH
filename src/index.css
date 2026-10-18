@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+.rt-offline-map {
+  background-color: #eef2f6;
+  background-image:
+    linear-gradient(rgba(100, 116, 139, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(100, 116, 139, 0.12) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.rt-offline-map .leaflet-tile-pane { display: none; }
+.rt-town span {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  font: 600 11px/1 system-ui, sans-serif;
+  color: #64748b;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.rt-town span::before {
+  content: '';
+  display: block;
+  width: 5px;
+  height: 5px;
+  margin: 0 auto 3px;
+  border-radius: 50%;
+  background: #94a3b8;
+}

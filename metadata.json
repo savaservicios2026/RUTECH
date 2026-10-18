@@ -1,0 +1,8 @@
+{
+  "name": "RUTECH - Planificador Inteligente de Rutas Técnicas",
+  "description": "Planificador y optimizador de rutas para equipos técnicos: asignación por competencias, horarios, zonas geográficas, visualización en mapa interactivo y resolución de conflictos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
