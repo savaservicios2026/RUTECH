@@ -416,7 +416,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               <option value="">Dejar pendiente (Asignación automática inteligente)</option>
               {technicians.map(t => (
                 <option key={t.id} value={t.id}>
-                  {t.name} (Zona {t.baseLocation.zone}) {!t.availability.isAvailableToday ? '— No disponible' : ''}
+                  {t.name} {!t.availability.isAvailableToday ? '— No disponible' : ''}
                 </option>
               ))}
             </select>

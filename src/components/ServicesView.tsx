@@ -287,7 +287,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                     <div>
                       <div className="font-medium text-slate-200 flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: tech.color }} />
-                        {tech.name} ({tech.baseLocation.zone})
+                        {tech.name}
                       </div>
                       <div className="text-[10px] text-slate-400">
                         {matchesSkills ? '✓ Conocimientos OK' : '✕ Faltan skills'} · ~{distFromBase} km
@@ -325,7 +325,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <option value="">⚠️ Sin Asignar (Pendiente)</option>
               {technicians.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name} ({t.baseLocation.zone}) {!t.availability.isAvailableToday ? '— No disponible' : ''}
+                  {t.name} {!t.availability.isAvailableToday ? '— No disponible' : ''}
                 </option>
               ))}
             </select>
@@ -561,7 +561,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <div className="flex items-center gap-2.5 border-b border-slate-200 pb-2">
                   <span className="w-3.5 h-3.5 rounded-full inline-block" style={{ backgroundColor: tech.color }} />
                   <h3 className="font-bold text-slate-800 text-sm">
-                    {tech.name} — {tech.baseLocation.zone} ({techServices.length} servicios asignados)
+                    {tech.name} ({techServices.length} servicios asignados)
                   </h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

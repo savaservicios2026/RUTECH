@@ -7,6 +7,7 @@ import {
   TicketStatus,
   Delivery,
   CompanyInfo,
+  WAREHOUSE,
   TechnicianRouteSummary, 
   OptimizationMetrics 
 } from './types';
@@ -61,7 +62,7 @@ export default function App() {
   );
 
   // Load from localStorage or initial mock data
-  const [technicians, setTechniciansState] = useState<Technician[]>(() => {
+  const [storedTechnicians, setTechniciansState] = useState<Technician[]>(() => {
     try {
       const saved = localStorage.getItem('rutatech_technicians_v3');
       return saved ? JSON.parse(saved) : INITIAL_TECHNICIANS;
@@ -69,6 +70,12 @@ export default function App() {
       return INITIAL_TECHNICIANS;
     }
   });
+
+  // Routes always start from the warehouse, whatever is stored in each technician's record
+  const technicians = useMemo(
+    () => storedTechnicians.map((t) => ({ ...t, baseLocation: WAREHOUSE })),
+    [storedTechnicians]
+  );
 
   const [services, setServicesState] = useState<ServiceJob[]>(() => {
     try {
@@ -146,7 +153,7 @@ export default function App() {
 
   // Save to localStorage
   useEffect(() => {
-    try { localStorage.setItem('rutatech_technicians_v3', JSON.stringify(technicians)); } catch {}
+    try { localStorage.setItem('rutatech_technicians_v3', JSON.stringify(storedTechnicians)); } catch {}
   }, [technicians]);
 
   useEffect(() => {
@@ -154,7 +161,7 @@ export default function App() {
   }, [services]);
 
   // Shared data: office, technicians and Claude work on the same technicians and services
-  useCloudCollection('technicians', technicians, setTechniciansState, canEdit);
+  useCloudCollection('technicians', storedTechnicians, setTechniciansState, canEdit);
   useCloudCollection('services', services, setServicesState, false, ROUTE_COMPUTED_KEYS);
 
   // Company vans (plate, maintenance, ITV); only office staff change them

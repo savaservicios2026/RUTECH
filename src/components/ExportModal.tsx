@@ -158,7 +158,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             >
               {technicians.map(t => (
                 <option key={t.id} value={t.id}>
-                  {t.name} ({t.baseLocation.zone}) - {t.phone}
+                  {t.name} - {t.phone}
                 </option>
               ))}
             </select>

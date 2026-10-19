@@ -3,7 +3,8 @@ import {
   Technician, 
   AVAILABLE_SKILLS, 
   SkillType, 
-  CITY_ZONES 
+  CITY_ZONES,
+  WAREHOUSE 
 } from '../types';
 import { X, User, MapPin, Clock, Award, Truck } from 'lucide-react';
 
@@ -126,12 +127,7 @@ export const TechnicianModal: React.FC<TechnicianModalProps> = ({
       phone: phone.trim() || '+34 600 000 000',
       email: email.trim() || `${name.toLowerCase().replace(/\s+/g, '.')}@rutatech.es`,
       vehicle,
-      baseLocation: {
-        address: address.trim(),
-        zone,
-        lat,
-        lng,
-      },
+      baseLocation: WAREHOUSE,
       schedule: {
         start: startHour,
         end: endHour,
@@ -270,31 +266,10 @@ export const TechnicianModal: React.FC<TechnicianModalProps> = ({
             </div>
           </div>
 
-          {/* Departure Base & Zone */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Zona de Salida *</label>
-              <select
-                value={zone}
-                onChange={(e) => handleZoneSelect(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-medium"
-              >
-                {CITY_ZONES.map(z => (
-                  <option key={z} value={z}>{z}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block font-semibold text-slate-700 mb-1">Dirección de Base / Almacén *</label>
-              <input
-                type="text"
-                required
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+          {/* Everyone starts the day at the warehouse */}
+          <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-blue-900">
+            <span className="font-semibold">Salida y vuelta:</span>
+            <span>{WAREHOUSE.address}</span>
           </div>
 
           {/* Work Schedule */}

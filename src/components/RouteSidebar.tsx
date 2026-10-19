@@ -78,7 +78,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
           >
             {technicians.map(t => (
               <option key={t.id} value={t.id}>
-                {t.name} ({t.baseLocation.zone}) {!t.availability.isAvailableToday ? '— [No disponible hoy]' : ''}
+                {t.name} {!t.availability.isAvailableToday ? '— [No disponible hoy]' : ''}
               </option>
             ))}
           </select>
@@ -102,8 +102,8 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                 <div className="font-semibold text-slate-800">{currentTech.schedule.start} - {currentTech.schedule.end}</div>
               </div>
               <div>
-                <div className="text-[11px] text-slate-400">Base / Zona</div>
-                <div className="font-semibold text-slate-800">{currentTech.baseLocation.zone}</div>
+                <div className="text-[11px] text-slate-400">Salida</div>
+                <div className="font-semibold text-slate-800">Nave Bértoa</div>
               </div>
               <div>
                 <div className="text-[11px] text-slate-400">Paradas</div>
@@ -272,7 +272,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                         <option value="">Desasignar</option>
                         {technicians.map(t => (
                           <option key={t.id} value={t.id}>
-                            {t.name.split(' ')[0]} ({t.baseLocation.zone})
+                            {t.name.split(' ')[0]}
                           </option>
                         ))}
                       </select>

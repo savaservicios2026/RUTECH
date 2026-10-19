@@ -114,7 +114,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
             >
               {technicians.map(t => (
                 <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                  {t.name} ({t.baseLocation.zone})
+                  {t.name}
                 </option>
               ))}
             </select>
@@ -147,7 +147,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
 
             <div className="flex justify-between text-[11px] text-slate-400 pt-1">
               <span>Jornada: <strong>{currentTech.schedule.start} - {currentTech.schedule.end}</strong></span>
-              <span>Salida: <strong>{currentTech.baseLocation.zone}</strong></span>
+              <span>Salida: <strong>Nave Bértoa</strong></span>
             </div>
           </div>
         )}

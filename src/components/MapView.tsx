@@ -125,7 +125,6 @@ export const MapView: React.FC<MapViewProps> = ({
             <span style="background-color: ${tech.color};" class="w-2.5 h-2.5 rounded-full inline-block"></span>
             ${tech.name} (Base)
           </div>
-          <div class="text-slate-600 mb-1"><strong>Zona:</strong> ${tech.baseLocation.zone}</div>
           <div class="text-slate-500 mb-1">${tech.baseLocation.address}</div>
           <div class="text-blue-600 font-medium">Horario: ${tech.schedule.start} - ${tech.schedule.end}</div>
         </div>

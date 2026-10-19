@@ -54,7 +54,7 @@ export const TechniciansView: React.FC<TechniciansViewProps> = ({
             Equipo de Técnicos Especialistas y Montadores
           </h2>
           <p className="text-xs text-slate-500">
-            Sergio, Manuel, Pablo y Juanma: disponibilidad diaria, base de salida, especialidad y vehículo asignado.
+            Sergio, Manuel, Pablo y Juanma: disponibilidad diaria, especialidad y vehículo asignado. Todos salen de la nave de Bértoa.
           </p>
         </div>
 
@@ -238,15 +238,7 @@ export const TechniciansView: React.FC<TechniciansViewProps> = ({
 
                 {/* Base Location & Schedule */}
                 <div className="bg-slate-50/80 rounded-lg p-2.5 border border-slate-100 space-y-1.5 text-xs text-slate-600 mb-3">
-                  <div className="flex items-start gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-slate-800">Zona {tech.baseLocation.zone}:</span>{' '}
-                      <span className="text-slate-500 text-[11px] truncate block">{tech.baseLocation.address}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-100">
+                  <div className="flex items-center justify-between text-[11px]">
                     <div className="flex items-center gap-1">
                       <Clock className="w-3 h-3 text-slate-400" />
                       <span>Turno: <strong>{tech.schedule.start} - {tech.schedule.end}</strong></span>
