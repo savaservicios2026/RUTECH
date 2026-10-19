@@ -1,5 +1,5 @@
 import { teamIds } from '../utils/teams';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ServiceJob, 
   Technician, 
@@ -55,6 +55,9 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDay, setSelectedDay] = useState<'day' | 'upcoming' | 'all'>('day');
+  // Day shown in the list; starts on the app's selected day and can be picked from the calendar
+  const [filterDate, setFilterDate] = useState(selectedDate);
+  useEffect(() => setFilterDate(selectedDate), [selectedDate]);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [selectedSkill, setSelectedSkill] = useState<string>('all');
@@ -65,7 +68,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const filteredServices = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     return services.filter((job) => {
-      if (selectedDay === 'day' && job.date !== selectedDate) return false;
+      if (selectedDay === 'day' && job.date !== filterDate) return false;
       if (selectedDay === 'upcoming' && job.date < today) return false;
 
       // Search
@@ -93,7 +96,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
       return matchesSearch && matchesStatus && matchesPriority && matchesSkill;
     }).sort((a, b) => a.date.localeCompare(b.date) || a.manualOrder - b.manualOrder);
-  }, [services, searchTerm, selectedStatus, selectedPriority, selectedSkill, selectedDay, selectedDate]);
+  }, [services, searchTerm, selectedStatus, selectedPriority, selectedSkill, selectedDay, filterDate]);
 
   // Helper to find qualified technicians for a specific job
   const getQualifiedCandidates = (job: ServiceJob) => {
@@ -418,12 +421,22 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           {/* Day filter */}
           <div>
             <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Día:</label>
+            <input
+              type="date"
+              value={selectedDay === 'day' ? filterDate : ''}
+              onChange={(e) => {
+                if (!e.target.value) return;
+                setFilterDate(e.target.value);
+                setSelectedDay('day');
+              }}
+              className="w-full bg-white border border-blue-300 rounded-lg px-2.5 py-1.5 text-slate-800 font-semibold cursor-pointer mb-1"
+            />
             <select
               value={selectedDay}
               onChange={(e) => setSelectedDay(e.target.value as 'day' | 'upcoming' | 'all')}
               className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 cursor-pointer"
             >
-              <option value="day">Día seleccionado ({formatDay(selectedDate)})</option>
+              <option value="day">Solo ese día ({formatDay(filterDate)})</option>
               <option value="upcoming">Desde hoy en adelante</option>
               <option value="all">Todos los días</option>
             </select>
