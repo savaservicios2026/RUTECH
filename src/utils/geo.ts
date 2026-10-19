@@ -30,8 +30,11 @@ export function calculateDistanceKm(
  */
 export function estimateTravelTimeMinutes(distanceKm: number): number {
   if (distanceKm <= 0.1) return 0;
-  // Average urban speed ~25-30 km/h + 4 minutes buffer for parking and building access
-  const minutes = (distanceKm / 28) * 60 + 4;
+  // First 10 km at urban speed (~30 km/h), the rest by road/motorway (~75 km/h),
+  // plus 4 minutes buffer for parking and building access
+  const urbanKm = Math.min(distanceKm, 10);
+  const roadKm = distanceKm - urbanKm;
+  const minutes = (urbanKm / 30) * 60 + (roadKm / 75) * 60 + 4;
   return Math.max(5, Math.round(minutes));
 }
 

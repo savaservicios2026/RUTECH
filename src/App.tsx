@@ -277,8 +277,14 @@ export default function App() {
 
   // Recalculate routes, stops and conflicts on every state update
   const { updatedServices, summaries, conflictsCount } = useMemo(() => {
-    return recalculateAllSchedules(technicians, services);
-  }, [technicians, services]);
+    return recalculateAllSchedules(technicians, services, selectedDate);
+  }, [technicians, services, selectedDate]);
+
+  // Map, agenda, routes and worker view show only the selected day
+  const dayServices = useMemo(
+    () => updatedServices.filter(s => s.date === selectedDate),
+    [updatedServices, selectedDate]
+  );
 
   // Active technicians count
   const activeTechs = useMemo(() => {
@@ -290,7 +296,7 @@ export default function App() {
     let assigned = 0;
     let unassigned = 0;
 
-    services.forEach(job => {
+    dayServices.forEach(job => {
       if (job.assignedTechnicianId) {
         assigned++;
       } else {
@@ -299,14 +305,14 @@ export default function App() {
     });
 
     return {
-      totalJobs: services.length,
+      totalJobs: dayServices.length,
       assignedJobs: assigned,
       unassignedJobs: unassigned,
       conflictsCount,
       totalKmSavedEstimate: Math.round(assigned * 4.4),
       totalActiveTechs: activeTechs.length,
     };
-  }, [services, conflictsCount, activeTechs]);
+  }, [dayServices, conflictsCount, activeTechs]);
 
   // Show temporary toast message
   const showToast = (msg: string) => {
@@ -366,7 +372,7 @@ export default function App() {
     setIsOptimizing(true);
     setTimeout(() => {
       const result = autoAssignAndOptimizeAll(technicians, services, selectedDate);
-      setServices(result.updatedServices);
+      setServices(services.map(s => result.updatedServices.find(u => u.id === s.id) || s));
       setIsOptimizing(false);
       showToast(
         `⚡ ¡Rutas optimizadas! ${result.metrics.assignedJobs} servicios asignados con orden de visita óptimo (~${result.metrics.totalKmSavedEstimate} km ahorrados).`
@@ -392,7 +398,7 @@ export default function App() {
     const tech = technicians.find(t => t.id === techId);
     if (!tech) return;
 
-    const techJobs = services.filter(s => s.assignedTechnicianId === techId);
+    const techJobs = services.filter(s => s.assignedTechnicianId === techId && s.date === selectedDate);
     if (techJobs.length <= 1) {
       showToast(`El técnico ya tiene una ruta optimizada o con pocas paradas.`);
       return;
@@ -421,7 +427,7 @@ export default function App() {
     if (!targetService || !targetService.assignedTechnicianId) return;
 
     const techJobs = services
-      .filter(s => s.assignedTechnicianId === targetService.assignedTechnicianId)
+      .filter(s => s.assignedTechnicianId === targetService.assignedTechnicianId && s.date === targetService.date)
       .sort((a, b) => a.manualOrder - b.manualOrder);
 
     const currentIndex = techJobs.findIndex(s => s.id === serviceId);
@@ -461,7 +467,7 @@ export default function App() {
     const updated = services.map(job => {
       if (job.id === serviceId) {
         const nextOrder = targetTechId
-          ? services.filter(s => s.assignedTechnicianId === targetTechId).length
+          ? services.filter(s => s.assignedTechnicianId === targetTechId && s.date === targetJob?.date).length
           : 0;
         return {
           ...job,
@@ -738,7 +744,7 @@ export default function App() {
             <div className="lg:col-span-8 bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden flex flex-col">
               <MapView
                 technicians={technicians}
-                services={updatedServices}
+                services={dayServices}
                 summaries={summaries}
                 selectedTechnicianId={selectedTechnicianId}
                 setSelectedTechnicianId={setSelectedTechnicianId}
@@ -753,7 +759,7 @@ export default function App() {
             <div className="lg:col-span-4 flex flex-col">
               <RouteSidebar
                 technicians={technicians}
-                services={updatedServices}
+                services={dayServices}
                 summaries={summaries}
                 selectedTechnicianId={effectiveTechId}
                 onSelectTechnician={(id) => setSelectedTechnicianId(id)}
@@ -773,7 +779,7 @@ export default function App() {
         {currentTab === 'timeline' && (
           <TimelineView
             technicians={technicians}
-            services={updatedServices}
+            services={dayServices}
             summaries={summaries}
             selectedDate={selectedDate}
             onSelectJob={(job) => {
@@ -789,6 +795,7 @@ export default function App() {
         {currentTab === 'services' && (
           <ServicesView
             services={updatedServices}
+            selectedDate={selectedDate}
             technicians={technicians}
             onOpenNewService={() => {
               setServiceToEdit(null);
@@ -807,7 +814,7 @@ export default function App() {
         {currentTab === 'technicians' && (
           <TechniciansView
             technicians={technicians}
-            services={updatedServices}
+            services={dayServices}
             summaries={summaries}
             onOpenNewTechnician={() => {
               setTechnicianToEdit(null);
@@ -862,7 +869,7 @@ export default function App() {
         {currentTab === 'analytics' && (
           <AnalyticsView
             technicians={technicians}
-            services={updatedServices}
+            services={dayServices}
             summaries={summaries}
             selectedDate={selectedDate}
           />
@@ -872,7 +879,7 @@ export default function App() {
         {currentTab === 'worker' && (
           <WorkerView
             technicians={technicians}
-            services={updatedServices}
+            services={dayServices}
             selectedDate={selectedDate}
             onUpdateJobStatus={handleUpdateJobStatus}
             initialTechnicianId={access.role === 'tecnico' ? access.technicianId : undefined}
@@ -947,7 +954,7 @@ export default function App() {
       <ConflictsModal
         isOpen={isConflictsModalOpen}
         onClose={() => setIsConflictsModalOpen(false)}
-        services={updatedServices}
+        services={dayServices}
         technicians={technicians}
         onAutoFixAll={handleOptimizeAll}
         onAssignJob={handleReassignJob}
@@ -962,7 +969,7 @@ export default function App() {
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         technicians={technicians}
-        services={updatedServices}
+        services={dayServices}
         summaries={summaries}
         selectedDate={selectedDate}
         onOpenWorkerView={(techId) => {

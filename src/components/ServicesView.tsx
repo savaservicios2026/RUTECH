@@ -23,11 +23,13 @@ import {
   Phone,
   Trash2,
   Edit,
-  Sparkles
+  Sparkles,
+  Calendar
 } from 'lucide-react';
 
 interface ServicesViewProps {
   services: ServiceJob[];
+  selectedDate: string;
   technicians: Technician[];
   onOpenNewService: () => void;
   onEditService: (service: ServiceJob) => void;
@@ -35,8 +37,12 @@ interface ServicesViewProps {
   onAssignJob: (serviceId: string, technicianId: string | null) => void;
 }
 
+const formatDay = (date: string) =>
+  new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'numeric' });
+
 export const ServicesView: React.FC<ServicesViewProps> = ({
   services,
+  selectedDate,
   technicians,
   onOpenNewService,
   onEditService,
@@ -44,6 +50,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   onAssignJob,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDay, setSelectedDay] = useState<'day' | 'upcoming' | 'all'>('day');
   const [selectedZone, setSelectedZone] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
@@ -53,7 +60,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
   // Filtered Services
   const filteredServices = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
     return services.filter((job) => {
+      if (selectedDay === 'day' && job.date !== selectedDate) return false;
+      if (selectedDay === 'upcoming' && job.date < today) return false;
+
       // Search
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
@@ -80,8 +91,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       const matchesSkill = selectedSkill === 'all' || job.requiredSkills.includes(selectedSkill as SkillType);
 
       return matchesSearch && matchesZone && matchesStatus && matchesPriority && matchesSkill;
-    });
-  }, [services, searchTerm, selectedZone, selectedStatus, selectedPriority, selectedSkill]);
+    }).sort((a, b) => a.date.localeCompare(b.date) || a.manualOrder - b.manualOrder);
+  }, [services, searchTerm, selectedZone, selectedStatus, selectedPriority, selectedSkill, selectedDay, selectedDate]);
 
   // Helper to find qualified technicians for a specific job
   const getQualifiedCandidates = (job: ServiceJob) => {
@@ -170,6 +181,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             <div className="flex items-center gap-2 text-[11px]">
               <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span className="truncate">{job.location.address}</span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-700">
+              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="capitalize">{formatDay(job.date)}</span>
             </div>
             <div className="flex items-center justify-between text-[11px]">
               <div className="flex items-center gap-1.5">
@@ -369,7 +384,21 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
         </div>
 
         {/* Filters Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2 border-t border-slate-100 text-xs">
+          {/* Day filter */}
+          <div>
+            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Día:</label>
+            <select
+              value={selectedDay}
+              onChange={(e) => setSelectedDay(e.target.value as 'day' | 'upcoming' | 'all')}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 cursor-pointer"
+            >
+              <option value="day">Día seleccionado ({formatDay(selectedDate)})</option>
+              <option value="upcoming">Desde hoy en adelante</option>
+              <option value="all">Todos los días</option>
+            </select>
+          </div>
+
           {/* Zone filter */}
           <div>
             <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Zona:</label>

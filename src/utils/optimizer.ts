@@ -254,7 +254,7 @@ export function autoAssignAndOptimizeAll(
   unassignedReasons: Record<string, string>;
 } {
   // Deep clone to avoid mutating input directly
-  const updatedServices: ServiceJob[] = JSON.parse(JSON.stringify(services));
+  const updatedServices: ServiceJob[] = JSON.parse(JSON.stringify(services.filter(s => s.date === date)));
   const unassignedReasons: Record<string, string> = {};
 
   // 1. Identify active technicians available on this date
@@ -275,10 +275,18 @@ export function autoAssignAndOptimizeAll(
     return aSlot - bSlot;
   });
 
+  // Jobs the office already assigned stay with their technician
+  for (const job of jobsToAssign) {
+    if (!job.assignedTechnicianId || !techAssignments.has(job.assignedTechnicianId)) continue;
+    if (job.status === 'pendiente') job.status = 'asignado';
+    techAssignments.get(job.assignedTechnicianId)!.push(job);
+  }
+
   // Assign each job
   for (const job of jobsToAssign) {
-    // Check if technician is currently assigned manually and still valid
+    // Keep the office's manual assignment when that technician is active
     let assigned = false;
+    if (activeTechnicians.some(t => t.id === job.assignedTechnicianId)) continue;
 
     // Find candidate technicians matching skills
     const qualifiedTechs = activeTechnicians.filter(t => hasRequiredSkills(t, job.requiredSkills));
@@ -417,7 +425,8 @@ export function autoAssignAndOptimizeAll(
  */
 export function recalculateAllSchedules(
   technicians: Technician[],
-  services: ServiceJob[]
+  services: ServiceJob[],
+  selectedDate: string
 ): {
   updatedServices: ServiceJob[];
   summaries: Map<string, TechnicianRouteSummary>;
@@ -427,16 +436,24 @@ export function recalculateAllSchedules(
   const summaries = new Map<string, TechnicianRouteSummary>();
   let conflictsCount = 0;
 
+  // Each technician's route is calculated per day: jobs on different dates never chain together
   technicians.forEach(tech => {
     const techJobs = updatedServices.filter(s => s.assignedTechnicianId === tech.id);
-    const summary = calculateTechnicianRoute(tech, techJobs);
-    summaries.set(tech.id, summary);
-    conflictsCount += summary.conflictsCount;
+    const dates = new Set(techJobs.map(s => s.date));
+    dates.add(selectedDate);
+    dates.forEach(date => {
+      const summary = calculateTechnicianRoute(tech, techJobs.filter(s => s.date === date));
+      if (date === selectedDate) {
+        summaries.set(tech.id, summary);
+        conflictsCount += summary.conflictsCount;
+      }
+    });
   });
 
   // Also check unassigned jobs
   updatedServices.forEach(job => {
     if (!job.assignedTechnicianId) {
+      job.conflict = undefined;
       if (!job.conflict) {
         job.conflict = {
           type: 'unassigned_no_match',
@@ -444,7 +461,7 @@ export function recalculateAllSchedules(
           severity: 'warning',
         };
       }
-      conflictsCount++;
+      if (job.date === selectedDate) conflictsCount++;
     }
   });
 
