@@ -380,7 +380,12 @@ export default function App() {
     myNotifications.forEach((n) => {
       if (n.read || shownRef.current.has(n.id) || (n.timestamp || '') < appStartRef.current) return;
       shownRef.current.add(n.id);
-      const forMe = access.role === 'tecnico' ? n.technicianId === access.technicianId : n.technicianId === 'all';
+      // Office staff who also work as technicians (same email in their Equipo card) get their own notices too
+      const ownTechId =
+        access.role === 'tecnico'
+          ? access.technicianId
+          : technicians.find((t) => access.email && t.email?.trim().toLowerCase() === access.email.toLowerCase())?.id;
+      const forMe = n.technicianId === ownTechId || (access.role !== 'tecnico' && n.technicianId === 'all');
       if (!forMe) return;
       sendWebPushNotification(n.title, { body: n.message, isUrgent: n.priority === 'urgente', tag: n.id });
       showToast(`🔔 ${n.title}`);
