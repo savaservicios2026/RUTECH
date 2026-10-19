@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ServiceJob, 
   Technician, 
+  Van,
   AVAILABLE_SKILLS, 
   SkillType, 
   PriorityType, 
@@ -26,6 +27,8 @@ interface ServiceModalProps {
   onClose: () => void;
   serviceToEdit?: ServiceJob | null;
   technicians: Technician[];
+  vans: Van[];
+  services: ServiceJob[]; // stored jobs, to tell if the van is already out that day
   onSave: (service: ServiceJob) => void;
 }
 
@@ -34,6 +37,8 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   onClose,
   serviceToEdit,
   technicians,
+  vans,
+  services,
   onSave,
 }) => {
   const [customerName, setCustomerName] = useState('');
@@ -51,6 +56,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   const [priority, setPriority] = useState<PriorityType>('alta');
   const [requiredSkills, setRequiredSkills] = useState<SkillType[]>(['Montaje Máquinas de Fuerza']);
   const [assignedIds, setAssignedIds] = useState<string[]>([]);
+  const [vanId, setVanId] = useState('');
   const [saving, setSaving] = useState(false);
   const [locationNote, setLocationNote] = useState<string | null>(null);
   // Id of the job being edited, or of the new one (photos can be attached before saving)
@@ -77,6 +83,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
       setPriority(serviceToEdit.priority);
       setRequiredSkills(serviceToEdit.requiredSkills);
       setAssignedIds(teamIds(serviceToEdit));
+      setVanId(serviceToEdit.vanId || '');
       setJobId(serviceToEdit.id);
     } else {
       // Defaults for new service
@@ -95,6 +102,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
       setPriority('alta');
       setRequiredSkills(['Montaje Máquinas de Fuerza']);
       setAssignedIds([]);
+      setVanId('');
       setJobId(`srv-${Date.now()}`);
     }
     setSaving(false);
@@ -181,6 +189,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
       assignedTechnicianId: ids[0] || null,
       assignedTechnicianIds: ids.length > 1 ? ids : undefined,
       manualOrder: serviceToEdit && prevIds[0] === ids[0] ? serviceToEdit.manualOrder : 99,
+      vanId: vanId || null,
     };
     if (!jobToSave.assignedTechnicianIds) delete jobToSave.assignedTechnicianIds;
 
@@ -425,6 +434,37 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
             {assignedIds.length > 1 && (
               <p className="text-[11px] text-slate-500 mt-1">Un solo servicio para todo el equipo: lo que cambies aquí se cambia para todos.</p>
             )}
+          </div>
+
+          {/* Van */}
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">Furgoneta para este servicio</label>
+            <select
+              value={vanId}
+              onChange={(e) => setVanId(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer"
+            >
+              <option value="">Sin furgoneta asignada</option>
+              {vans.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.model} · {v.plate}
+                </option>
+              ))}
+            </select>
+            {vans.length === 0 && <p className="text-[11px] text-slate-500 mt-1">Todavía no hay furgonetas en la pestaña Furgonetas.</p>}
+            {(() => {
+              const others = vanId
+                ? services.filter((s) => s.vanId === vanId && s.date === date && s.id !== jobId && s.kind !== 'nave')
+                : [];
+              return others.length > 0 ? (
+                <p className="text-[11px] text-amber-700 mt-1">
+                  Ese día esta furgoneta también va a:{' '}
+                  {others
+                    .map((s) => `${s.customerName}${s.timeSlot.type === 'cualquiera' ? '' : ` (${s.timeSlot.startHour}-${s.timeSlot.endHour})`}`)
+                    .join(', ')}
+                </p>
+              ) : null;
+            })()}
           </div>
 
           {/* Buttons */}

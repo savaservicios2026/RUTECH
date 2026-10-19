@@ -983,6 +983,7 @@ export default function App() {
             services={updatedServices.filter((s) => !s.teamParentId && s.kind !== 'nave')}
             selectedDate={selectedDate}
             technicians={technicians}
+            vans={vans}
             onOpenNewService={() => {
               setServiceToEdit(null);
               setIsServiceModalOpen(true);
@@ -1094,6 +1095,7 @@ export default function App() {
             selectedDate={selectedDate}
             onUpdateJobStatus={handleUpdateJobStatus}
             initialTechnicianId={access.role === 'tecnico' ? access.technicianId : undefined}
+            vans={vans}
             onSelectTechnician={(id) => setSelectedTechnicianId(id)}
             onOpenInSituModal={(service) => {
               setServiceForInSitu(service);
@@ -1185,6 +1187,8 @@ export default function App() {
         }}
         serviceToEdit={serviceToEdit}
         technicians={technicians}
+        vans={vans}
+        services={storedServices}
         onSave={(job) => {
           handleSaveService(job);
           if (convertingTicketId) setTicketStatus(convertingTicketId, 'convertido', job.id);

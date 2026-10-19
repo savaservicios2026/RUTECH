@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Technician, ServiceJob, JobStatus } from '../types';
+import { Technician, ServiceJob, JobStatus, Van, vanLabel } from '../types';
 import { 
   Smartphone, 
   Navigation, 
@@ -34,6 +34,7 @@ interface WorkerViewProps {
   onAddWarehouseStop: (technicianId: string, minutes: number, reason: string) => void;
   onRemoveStop: (serviceId: string) => void;
   onOpenWorkOrders: () => void;
+  vans: Van[];
 }
 
 const NAVE_REASONS = ['Recoger material', 'Cargar pedido en furgón', 'Descargar material', 'Otro'];
@@ -49,6 +50,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
   onAddWarehouseStop,
   onRemoveStop,
   onOpenWorkOrders,
+  vans,
 }) => {
   const [naveOpen, setNaveOpen] = useState(false);
   const [naveMinutes, setNaveMinutes] = useState(30);
@@ -374,6 +376,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
 
                       <h3 className="font-bold text-sm text-slate-900">{job.customerName}</h3>
                       <p className="text-xs text-slate-600 font-medium">{job.title}</p>
+                      {job.vanId && <p className="text-xs text-slate-500">🚐 {vanLabel(vans, job.vanId)}</p>}
                     </div>
                   </div>
 

@@ -162,6 +162,7 @@ export interface ServiceJob {
   assignedTechnicianIds?: string[];
   manualOrder: number; // sequential position in technician's route (0, 1, 2...)
   manualOrderByTech?: Record<string, number>; // position in each team member's own route
+  vanId?: string | null; // van chosen for this job (does not depend on the technician)
   kind?: 'servicio' | 'nave'; // 'nave': a stop at the warehouse a technician adds to their day
   // Set on the in-memory copy shown in a team member's route: the record it belongs to
   teamParentId?: string;
@@ -346,3 +347,9 @@ export function resolveStartLocation(loc: LocationPoint): LocationPoint {
   const known = KNOWN_STARTS.find((k) => k.match.test(loc.address || ''));
   return known ? { ...loc, lat: known.lat, lng: known.lng, zone: known.zone } : loc;
 }
+
+/** "Model · plate" of a van, for showing which one a job uses. */
+export const vanLabel = (vans: Van[], id?: string | null) => {
+  const v = vans.find((x) => x.id === id);
+  return v ? `${v.model} · ${v.plate}` : 'Furgoneta';
+};

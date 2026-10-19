@@ -5,7 +5,9 @@ import {
   Technician, 
   AVAILABLE_SKILLS, 
   SkillType, 
-  PriorityType 
+  PriorityType,
+  Van,
+  vanLabel,
 } from '../types';
 import { hasRequiredSkills } from '../utils/optimizer';
 import { calculateDistanceKm } from '../utils/geo';
@@ -31,6 +33,7 @@ interface ServicesViewProps {
   services: ServiceJob[];
   selectedDate: string;
   technicians: Technician[];
+  vans: Van[];
   onOpenNewService: () => void;
   onEditService: (service: ServiceJob) => void;
   onDeleteService: (serviceId: string) => void;
@@ -46,6 +49,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   services,
   selectedDate,
   technicians,
+  vans,
   onOpenNewService,
   onEditService,
   onDeleteService,
@@ -172,6 +176,9 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           {/* Customer & Title */}
           <h3 className="font-bold text-sm text-slate-900 mb-0.5">{job.customerName}</h3>
           <p className="text-xs text-slate-600 font-medium mb-1">{job.title}</p>
+          {job.vanId && (
+            <p className="text-xs text-slate-500 mb-1">🚐 {vanLabel(vans, job.vanId)}</p>
+          )}
           <p className="text-[11px] text-slate-500 line-clamp-2 mb-3">{job.description}</p>
 
           {/* Details metadata */}
