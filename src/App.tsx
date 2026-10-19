@@ -20,6 +20,7 @@ import {
   technicianForDate
 } from './utils/optimizer';
 import { Header, AppTab } from './components/Header';
+import { DayPicker } from './components/DayPicker';
 import { WorkOrdersView } from './components/WorkOrdersView';
 import { MapView } from './components/MapView';
 import { RouteSidebar } from './components/RouteSidebar';
@@ -928,6 +929,8 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6 flex flex-col">
         {/* TAB 1: MAP & ROUTE PLANNER */}
         {currentTab === 'map' && (
+          <div className="flex-1 flex flex-col gap-3">
+          <DayPicker date={selectedDate} onChange={setSelectedDate} />
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch min-h-[580px]">
             {/* Map Container */}
             <div className="lg:col-span-8 bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden flex flex-col">
@@ -957,6 +960,7 @@ export default function App() {
                 onChangeStartTime={handleChangeStartTime}
               />
             </div>
+          </div>
           </div>
         )}
 
