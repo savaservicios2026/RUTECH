@@ -88,7 +88,18 @@ export function calculateTechnicianRoute(
       arrivalMinutes += waitMinutes;
     }
 
-    const departureMinutes = arrivalMinutes + job.estimatedDuration;
+    let departureMinutes = arrivalMinutes + job.estimatedDuration;
+
+    // Real times from the work order replace the plan, so the rest of the route moves with them
+    const actualStart = job.inSituReport?.startedAt ? timeStringToMinutes(job.inSituReport.startedAt) : 0;
+    const actualEnd = job.inSituReport?.completedAt ? timeStringToMinutes(job.inSituReport.completedAt) : 0;
+    if (actualStart > 0) {
+      arrivalMinutes = actualStart;
+      departureMinutes = actualStart + job.estimatedDuration;
+    }
+    if (actualEnd > 0 && actualEnd >= arrivalMinutes) {
+      departureMinutes = actualEnd;
+    }
 
     // Detect conflicts
     let conflict: ServiceJob['conflict'] = undefined;

@@ -236,7 +236,13 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                     <div className="font-mono font-bold text-blue-700 text-xs">
                       {job.scheduledArrival || '--:--'}
                     </div>
-                    <span className="text-[10px] text-slate-400">({job.estimatedDuration} min)</span>
+                    <span className="text-[10px] text-slate-400">
+                      {job.inSituReport?.completedAt
+                        ? `real ${job.scheduledArrival}–${job.scheduledDeparture}`
+                        : job.inSituReport?.startedAt
+                        ? 'llegada real'
+                        : `(${job.estimatedDuration} min)`}
+                    </span>
                   </div>
                 </div>
 
