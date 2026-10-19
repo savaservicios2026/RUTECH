@@ -294,3 +294,14 @@ export interface Delivery {
   status: DeliveryStatus;
   serviceId?: string | null;
 }
+
+// Company details printed on work orders (Firestore settings/company)
+export interface CompanyInfo {
+  id: 'company';
+  legalName: string;
+  cif: string;
+  address: string;
+  phone: string;
+  email: string;
+  web?: string;
+}

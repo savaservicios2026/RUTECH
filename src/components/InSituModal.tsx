@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ServiceJob, JobStatus } from '../types';
+import { ServiceJob, JobStatus, CompanyInfo } from '../types';
 import {
   X,
   Clock,
@@ -22,6 +22,7 @@ interface InSituModalProps {
   onClose: () => void;
   service: ServiceJob | null;
   technicianNames: string;
+  company: CompanyInfo;
   onSaveInSituReport: (
     serviceId: string,
     report: NonNullable<ServiceJob['inSituReport']>,
@@ -49,6 +50,7 @@ export const InSituModal: React.FC<InSituModalProps> = ({
   onClose,
   service,
   technicianNames,
+  company,
   onSaveInSituReport,
 }) => {
   const [outcome, setOutcome] = useState<'resuelto' | 'volver' | null>(null);
@@ -428,7 +430,7 @@ export const InSituModal: React.FC<InSituModalProps> = ({
           {service.inSituReport?.outcome && (
             <button
               type="button"
-              onClick={() => printWorkOrder(service, technicianNames)}
+              onClick={() => printWorkOrder(service, technicianNames, company)}
               className="px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer"
             >
               <Printer className="w-4 h-4" />

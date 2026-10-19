@@ -6,6 +6,7 @@ import {
   Ticket,
   TicketStatus,
   Delivery,
+  CompanyInfo,
   TechnicianRouteSummary, 
   OptimizationMetrics 
 } from './types';
@@ -35,6 +36,7 @@ import { InSituModal } from './components/InSituModal';
 import { VansView, countVanWarnings } from './components/VansView';
 import { TicketsView } from './components/TicketsView';
 import { DeliveriesView } from './components/DeliveriesView';
+import { CompanyModal, DEFAULT_COMPANY } from './components/CompanyModal';
 import { DeliverySuggestion, deliveryStatus } from './utils/deliveries';
 import { zoneCenter } from './utils/tickets';
 import { 
@@ -43,7 +45,7 @@ import {
   getNotificationPermissionState 
 } from './utils/notifications';
 import { JobStatus } from './types';
-import { CheckCircle2, RotateCcw, LogOut, AlertTriangle, Zap, Sparkles, Bell } from 'lucide-react';
+import { CheckCircle2, RotateCcw, LogOut, AlertTriangle, Zap, Sparkles, Bell, Building2 } from 'lucide-react';
 
 export default function App() {
   const access = useAccess();
@@ -177,6 +179,12 @@ export default function App() {
       prev.map((t) => (t.id === ticketId ? { ...t, status, serviceId: serviceId ?? (status === 'nuevo' ? null : t.serviceId ?? null) } : t))
     );
   };
+
+  // Company details for printed work orders
+  const [settings, setSettingsState] = useState<CompanyInfo[]>([]);
+  useCloudCollection('settings', settings, setSettingsState);
+  const company = settings.find((x) => x.id === 'company') || DEFAULT_COMPANY;
+  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
 
   // Material deliveries, fitted into the technicians' planned routes
   const [deliveries, setDeliveriesState] = useState<Delivery[]>([]);
@@ -1034,6 +1042,15 @@ export default function App() {
               </button>
             )}
             {canEdit && (
+              <button
+                onClick={() => setIsCompanyModalOpen(true)}
+                className="flex items-center gap-1 text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                <span>Datos de empresa</span>
+              </button>
+            )}
+            {canEdit && (
             <button
               onClick={handleResetData}
               className="flex items-center gap-1 text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
@@ -1048,6 +1065,16 @@ export default function App() {
       </footer>
 
       {/* Modals */}
+      <CompanyModal
+        isOpen={isCompanyModalOpen}
+        company={company}
+        onClose={() => setIsCompanyModalOpen(false)}
+        onSave={(c) => {
+          setSettingsState((prev) => [...prev.filter((x) => x.id !== 'company'), c]);
+          setIsCompanyModalOpen(false);
+          showToast('Datos de la empresa guardados');
+        }}
+      />
       <ServiceModal
         isOpen={isServiceModalOpen}
         onClose={() => {
@@ -1123,6 +1150,7 @@ export default function App() {
         }}
         service={serviceForInSitu}
         technicianNames={serviceForInSitu ? teamNamesFor(serviceForInSitu) : ''}
+        company={company}
         onSaveInSituReport={handleSaveInSituReport}
       />
     </div>
