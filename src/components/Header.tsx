@@ -289,7 +289,7 @@ export const Header: React.FC<HeaderProps> = ({
             <Truck className="w-4 h-4" />
             <span>Furgonetas</span>
             {vanWarningsCount > 0 && (
-              <span className="text-[10px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5" title="ITV o mantenimiento vencido o en menos de 30 días">
+              <span className="text-[10px] font-bold bg-amber-500 text-white rounded-full px-1.5 py-0.5" title="ITV en menos de 30 días o mantenimiento a menos de 1.000 km">
                 {vanWarningsCount}
               </span>
             )}

@@ -19,14 +19,22 @@ export function daysUntil(date?: string): number | null {
   return Math.round((target.getTime() - today.getTime()) / 86400000);
 }
 
-/** Vans whose ITV or maintenance is overdue or due within 30 days. */
+// Warn this many km before the next service is due
+const KM_WARNING = 1000;
+
+/** Km left until the next service, or null when the current km or the target is missing. */
+export function kmUntilMaintenance(van: Van): number | null {
+  if (van.nextMaintenanceKm == null || van.km == null) return null;
+  return van.nextMaintenanceKm - van.km;
+}
+
+/** Vans whose ITV is due within 30 days or whose service is due within 1,000 km (or overdue). */
 export function countVanWarnings(vans: Van[]): number {
-  return vans.filter((v) =>
-    [v.nextItv, v.nextMaintenance].some((d) => {
-      const days = daysUntil(d);
-      return days !== null && days <= 30;
-    })
-  ).length;
+  return vans.filter((v) => {
+    const days = daysUntil(v.nextItv);
+    const km = kmUntilMaintenance(v);
+    return (days !== null && days <= 30) || (km !== null && km <= KM_WARNING);
+  }).length;
 }
 
 const formatDate = (date?: string) =>
@@ -52,6 +60,31 @@ const DueBadge: React.FC<{ label: string; date?: string }> = ({ label, date }) =
     <div className={`rounded-lg border px-3 py-2 ${tone}`}>
       <div className="text-[11px] font-semibold uppercase tracking-wide">{label}</div>
       <div className="text-sm font-bold">{formatDate(date)}</div>
+      <div className="text-[11px]">{note}</div>
+    </div>
+  );
+};
+
+const KmBadge: React.FC<{ van: Van }> = ({ van }) => {
+  const left = kmUntilMaintenance(van);
+  let tone = 'bg-slate-100 text-slate-500 border-slate-200';
+  let note = van.nextMaintenanceKm == null ? 'Sin indicar' : 'Falta km actual';
+  if (left !== null) {
+    if (left <= 0) {
+      tone = 'bg-rose-50 text-rose-700 border-rose-200';
+      note = `Pasado ${(-left).toLocaleString('es-ES')} km`;
+    } else if (left <= KM_WARNING) {
+      tone = 'bg-amber-50 text-amber-700 border-amber-200';
+      note = `Faltan ${left.toLocaleString('es-ES')} km`;
+    } else {
+      tone = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      note = `Faltan ${left.toLocaleString('es-ES')} km`;
+    }
+  }
+  return (
+    <div className={`rounded-lg border px-3 py-2 ${tone}`}>
+      <div className="text-[11px] font-semibold uppercase tracking-wide">Próx. mantenimiento</div>
+      <div className="text-sm font-bold">{van.nextMaintenanceKm != null ? `${van.nextMaintenanceKm.toLocaleString('es-ES')} km` : '—'}</div>
       <div className="text-[11px]">{note}</div>
     </div>
   );
@@ -115,7 +148,7 @@ export const VansView: React.FC<VansViewProps> = ({ vans, technicians, canEdit, 
             <Truck className="w-5 h-5 text-blue-600" />
             Furgonetas
           </h2>
-          <p className="text-xs text-slate-500">Matrícula, mantenimientos e ITV de cada furgoneta. Avisa en ámbar a 30 días y en rojo si ya ha vencido.</p>
+          <p className="text-xs text-slate-500">Matrícula, mantenimientos e ITV de cada furgoneta. Avisa en ámbar a 30 días de la ITV o a 1.000 km del mantenimiento, y en rojo si ya ha vencido.</p>
         </div>
         {canEdit && (
           <button
@@ -172,7 +205,7 @@ export const VansView: React.FC<VansViewProps> = ({ vans, technicians, canEdit, 
 
               <div className="grid grid-cols-2 gap-2">
                 <DueBadge label="Próxima ITV" date={van.nextItv} />
-                <DueBadge label="Próx. mantenimiento" date={van.nextMaintenance} />
+                <KmBadge van={van} />
               </div>
 
               <div>
@@ -258,12 +291,12 @@ export const VansView: React.FC<VansViewProps> = ({ vans, technicians, canEdit, 
               <label className="block text-xs font-semibold text-slate-600 flex items-center gap-1"><CalendarClock className="w-3.5 h-3.5" />Próxima ITV
                 <input type="date" value={editing.nextItv || ''} onChange={(e) => setEditing({ ...editing, nextItv: e.target.value || undefined })} className={inputClass} />
               </label>
-              <label className="block text-xs font-semibold text-slate-600 flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" />Próx. mantenimiento
-                <input type="date" value={editing.nextMaintenance || ''} onChange={(e) => setEditing({ ...editing, nextMaintenance: e.target.value || undefined })} className={inputClass} />
+              <label className="block text-xs font-semibold text-slate-600 flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" />Próx. mantenimiento (km)
+                <input type="number" inputMode="numeric" placeholder="Ej. 120000" value={editing.nextMaintenanceKm ?? ''} onChange={(e) => setEditing({ ...editing, nextMaintenanceKm: e.target.value ? Number(e.target.value) : undefined })} className={inputClass} />
               </label>
             </div>
             <div className="grid grid-cols-2 gap-3 items-end">
-              <label className="block text-xs font-semibold text-slate-600">Kilómetros
+              <label className="block text-xs font-semibold text-slate-600">Kilómetros actuales
                 <input type="number" inputMode="numeric" value={editing.km ?? ''} onChange={(e) => setEditing({ ...editing, km: e.target.value ? Number(e.target.value) : undefined })} className={inputClass} />
               </label>
               <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 pb-2">

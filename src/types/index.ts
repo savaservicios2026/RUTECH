@@ -237,7 +237,7 @@ export interface Van {
   isElectric?: boolean;
   km?: number;
   nextItv?: string; // YYYY-MM-DD
-  nextMaintenance?: string; // YYYY-MM-DD
+  nextMaintenanceKm?: number; // odometer reading at which the next service is due
   maintenances: VanMaintenance[];
   notes?: string;
 }
