@@ -6,6 +6,8 @@ service cloud.firestore {
     function hasRole() { return signedIn() && exists(roleDoc()); }
     function isOffice() { return hasRole() && get(roleDoc()).data.role == 'oficina'; }
     function isTech() { return hasRole() && get(roleDoc()).data.role == 'tecnico'; }
+    // Saves from the current app carry _v; old copies of the app still open on some phone are refused
+    function current() { return request.resource.data.get('_v', 0) >= 8; }
 
     match /roles/{email} {
       allow read: if signedIn() && (request.auth.token.email == email || isOffice());
@@ -13,8 +15,9 @@ service cloud.firestore {
     }
     match /technicians/{id} {
       allow read: if hasRole();
-      allow write: if isOffice();
-      allow update: if isTech() && id == get(roleDoc()).data.technicianId
+      allow delete: if isOffice();
+      allow create, update: if isOffice() && current();
+      allow update: if current() && isTech() && id == get(roleDoc()).data.technicianId
         && request.resource.data.email == resource.data.email;
     }
     // Breakdown tickets: customers send them from the public form without signing in.
@@ -53,7 +56,8 @@ service cloud.firestore {
     // Any other section (vans and future ones): everyone with a role reads, office edits
     match /{section}/{id} {
       allow read: if hasRole() && section != 'roles';
-      allow write: if isOffice();
+      allow delete: if isOffice();
+      allow create, update: if isOffice() && current();
     }
     match /services/{id} {
       function myTechId() { return get(roleDoc()).data.technicianId; }
@@ -64,11 +68,11 @@ service cloud.firestore {
       // Technicians may add (and remove) their own stops at the warehouse
       function ownNave(d) { return d.get('kind', '') == 'nave' && d.assignedTechnicianId == myTechId(); }
       allow read: if hasRole();
-      allow create: if isOffice() || (isTech() && ownNave(request.resource.data));
+      allow create: if current() && (isOffice() || (isTech() && ownNave(request.resource.data)));
       allow delete: if isOffice() || (isTech() && ownNave(resource.data));
-      allow update: if isOffice() || (isTech() && onTeam(resource.data)
+      allow update: if current() && (isOffice() || (isTech() && onTeam(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['status', 'estimatedDuration', 'inSituReport', 'manualOrder', 'manualOrderByTech']));
+             .hasOnly(['status', 'estimatedDuration', 'inSituReport', 'manualOrder', 'manualOrderByTech', '_v'])));
     }
     // Photos and files of jobs and work orders: everyone in the team adds them
     match /attachments/{id} {
@@ -80,8 +84,8 @@ service cloud.firestore {
     // In-app notices (new job, delivery or breakdown assigned to a technician)
     match /notifications/{id} {
       allow read: if hasRole();
-      allow create: if hasRole();
-      allow update: if hasRole() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow create: if hasRole() && current();
+      allow update: if hasRole() && current() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', '_v']);
       allow delete: if isOffice();
     }
     // Signed work orders sent to customers: readable by whoever has the (unguessable) link

@@ -9,6 +9,10 @@ import { isFirebaseEnabled, getFirestoreStore } from './firebase';
 
 type WithId = { id: string };
 
+// Every record this version saves carries this number; the database rules refuse saves without it,
+// so a phone still running an old copy of the app cannot write back old data
+export const SYNC_VERSION = 8;
+
 // Sorted-key JSON so the same record always serializes identically
 function stableStringify(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
@@ -52,8 +56,8 @@ export function useCloudCollection<T extends WithId>(
   // Fields each device works out for itself (e.g. route times) are never written to the database,
   // so devices that compute them differently cannot keep overwriting each other
   const shared = (item: object) => {
-    if (!localOnlyKeys.length) return item;
     const copy: Record<string, unknown> = { ...item };
+    delete copy._v;
     localOnlyKeys.forEach((k) => delete copy[k]);
     return copy;
   };
@@ -121,7 +125,7 @@ export function useCloudCollection<T extends WithId>(
       const json = stableStringify(shared(item));
       if (synced.get(item.id) === json) return;
       synced.set(item.id, json);
-      const body = JSON.parse(json);
+      const body = { ...JSON.parse(json), _v: SYNC_VERSION };
       enqueue(item.id, () => col.doc(item.id).set(body));
     });
 
