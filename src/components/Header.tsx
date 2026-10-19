@@ -212,34 +212,34 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Tabs Navigation */}
       <div className="bg-slate-950/60 border-t border-slate-800 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex space-x-1 sm:space-x-4 overflow-x-auto py-1 scrollbar-none">
+        <div className="max-w-7xl mx-auto flex gap-1 lg:gap-1.5 overflow-x-auto lg:overflow-visible lg:flex-wrap lg:justify-between py-1 scrollbar-none">
           <button
             onClick={() => setCurrentTab('map')}
-            className={`flex items-center gap-2 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-2 py-2 px-3 lg:px-2.5 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               currentTab === 'map'
                 ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
             <MapPin className="w-4 h-4" />
-            <span>Mapa y Rutas</span>
+            <span>Mapa</span>
           </button>
 
           <button
             onClick={() => setCurrentTab('timeline')}
-            className={`flex items-center gap-2 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-2 py-2 px-3 lg:px-2.5 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               currentTab === 'timeline'
                 ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
             <Clock className="w-4 h-4" />
-            <span>Agenda y Cronograma</span>
+            <span>Agenda</span>
           </button>
 
           <button
             onClick={() => setCurrentTab('services')}
-            className={`flex items-center gap-2 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-2 py-2 px-3 lg:px-2.5 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               currentTab === 'services'
                 ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -254,19 +254,19 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={() => setCurrentTab('technicians')}
-            className={`flex items-center gap-2 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-2 py-2 px-3 lg:px-2.5 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               currentTab === 'technicians'
                 ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Equipo Técnico ({metrics.totalActiveTechs} activos)</span>
+            <span>Equipo ({metrics.totalActiveTechs})</span>
           </button>
 
           <button
             onClick={() => setCurrentTab('tickets')}
-            className={`flex items-center gap-2 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-2 py-2 px-3 lg:px-2.5 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               currentTab === 'tickets'
                 ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -283,7 +283,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={() => setCurrentTab('deliveries')}
-            className={`flex items-center gap-2 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-2 py-2 px-3 lg:px-2.5 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               currentTab === 'deliveries'
                 ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -300,7 +300,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={() => setCurrentTab('vans')}
-            className={`flex items-center gap-2 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-2 py-2 px-3 lg:px-2.5 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               currentTab === 'vans'
                 ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -317,19 +317,19 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={() => setCurrentTab('analytics')}
-            className={`flex items-center gap-2 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-2 py-2 px-3 lg:px-2.5 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               currentTab === 'analytics'
                 ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
             <TrendingUp className="w-4 h-4" />
-            <span>Rendimiento y Estadísticas</span>
+            <span>Estadísticas</span>
           </button>
 
           <button
             onClick={() => setCurrentTab('worker')}
-            className={`flex items-center gap-2 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-2 py-2 px-3 lg:px-2.5 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               currentTab === 'worker'
                 ? 'bg-emerald-600/25 text-emerald-400 border border-emerald-500/40 shadow-xs'
                 : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
@@ -337,7 +337,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="Vista móvil que ven los trabajadores en su teléfono"
           >
             <Smartphone className="w-4 h-4 text-emerald-400" />
-            <span className="font-semibold">📱 Modo Operario Móvil</span>
+            <span className="font-semibold">Modo técnico</span>
           </button>
         </div>
       </div>
