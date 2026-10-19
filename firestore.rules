@@ -77,6 +77,13 @@ service cloud.firestore {
         && shortText(request.resource.data.dataUrl, 1000000);
       allow delete: if isOffice() || (hasRole() && resource.data.by == request.auth.token.email);
     }
+    // In-app notices (new job, delivery or breakdown assigned to a technician)
+    match /notifications/{id} {
+      allow read: if hasRole();
+      allow create: if hasRole();
+      allow update: if hasRole() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isOffice();
+    }
     // Signed work orders sent to customers: readable by whoever has the (unguessable) link
     match /publicWorkOrders/{token} {
       allow get: if true;
