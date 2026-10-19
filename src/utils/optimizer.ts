@@ -432,7 +432,8 @@ export function recalculateAllSchedules(
   summaries: Map<string, TechnicianRouteSummary>;
   conflictsCount: number;
 } {
-  const updatedServices = [...services];
+  // Work on copies: route times and conflicts are worked out here, never stored in the app state
+  const updatedServices = services.map(s => ({ ...s }));
   const summaries = new Map<string, TechnicianRouteSummary>();
   let conflictsCount = 0;
 

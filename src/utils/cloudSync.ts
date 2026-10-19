@@ -41,13 +41,22 @@ export function useCloudCollection<T extends WithId>(
   collectionName: string,
   items: T[],
   setItems: (items: T[]) => void,
-  seedIfEmpty = false
+  seedIfEmpty = false,
+  localOnlyKeys: string[] = []
 ): CloudStatus {
   const [status, setStatus] = useState<CloudStatus>('connecting');
   const collectionRef = useRef<any>(null);
   const syncedRef = useRef<Map<string, string>>(new Map());
   const loadedRef = useRef(false);
   const writeChainsRef = useRef<Map<string, Promise<void>>>(new Map());
+  // Fields each device works out for itself (e.g. route times) are never written to the database,
+  // so devices that compute them differently cannot keep overwriting each other
+  const shared = (item: object) => {
+    if (!localOnlyKeys.length) return item;
+    const copy: Record<string, unknown> = { ...item };
+    localOnlyKeys.forEach((k) => delete copy[k]);
+    return copy;
+  };
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
@@ -77,7 +86,7 @@ export function useCloudCollection<T extends WithId>(
           const next = new Map<string, string>();
           const docs: T[] = snap.docs.map((d: any) => {
             const data = { ...(d.data() as object), id: d.id } as T;
-            next.set(d.id, stableStringify(data));
+            next.set(d.id, stableStringify(shared(data)));
             return data;
           });
           syncedRef.current = next;
@@ -109,7 +118,7 @@ export function useCloudCollection<T extends WithId>(
 
     items.forEach((item) => {
       seen.add(item.id);
-      const json = stableStringify(item);
+      const json = stableStringify(shared(item));
       if (synced.get(item.id) === json) return;
       synced.set(item.id, json);
       const body = JSON.parse(json);

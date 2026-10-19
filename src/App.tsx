@@ -47,6 +47,9 @@ import {
 import { JobStatus } from './types';
 import { CheckCircle2, RotateCcw, LogOut, AlertTriangle, Zap, Sparkles, Bell, Building2 } from 'lucide-react';
 
+// Worked out on each device from the route, never stored
+const ROUTE_COMPUTED_KEYS = ['scheduledArrival', 'scheduledDeparture', 'travelTimeFromPrev', 'distanceKmFromPrev', 'conflict'];
+
 export default function App() {
   const access = useAccess();
   const canEdit = access.role === 'oficina';
@@ -152,7 +155,7 @@ export default function App() {
 
   // Shared data: office, technicians and Claude work on the same technicians and services
   useCloudCollection('technicians', technicians, setTechniciansState, canEdit);
-  useCloudCollection('services', services, setServicesState);
+  useCloudCollection('services', services, setServicesState, false, ROUTE_COMPUTED_KEYS);
 
   // Company vans (plate, maintenance, ITV); only office staff change them
   const [vans, setVansState] = useState<Van[]>(() => {
