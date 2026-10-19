@@ -276,3 +276,21 @@ export interface TicketMedia {
   name: string;
   dataUrl: string;
 }
+
+export type DeliveryStatus = 'pendiente' | 'planificada' | 'entregada';
+
+export interface Delivery {
+  id: string;
+  createdAt: string; // ISO
+  facility?: string; // centro / gimnasio
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
+  location: { address: string; lat: number; lng: number; zone: string; approximate?: boolean };
+  items: string; // material a entregar
+  notes?: string;
+  deadline?: string; // YYYY-MM-DD, entregar antes de
+  estimatedMinutes: number;
+  status: DeliveryStatus;
+  serviceId?: string | null;
+}

@@ -5,6 +5,7 @@ import {
   Van,
   Ticket,
   TicketStatus,
+  Delivery,
   TechnicianRouteSummary, 
   OptimizationMetrics 
 } from './types';
@@ -33,6 +34,8 @@ import { WorkerView } from './components/WorkerView';
 import { InSituModal } from './components/InSituModal';
 import { VansView, countVanWarnings } from './components/VansView';
 import { TicketsView } from './components/TicketsView';
+import { DeliveriesView } from './components/DeliveriesView';
+import { DeliverySuggestion, deliveryStatus } from './utils/deliveries';
 import { zoneCenter } from './utils/tickets';
 import { 
   AppNotification, 
@@ -48,7 +51,7 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
-  const [currentTab, setCurrentTab] = useState<'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans' | 'tickets'>(
+  const [currentTab, setCurrentTab] = useState<'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans' | 'tickets' | 'deliveries'>(
     access.role === 'tecnico' ? 'worker' : 'map'
   );
 
@@ -173,6 +176,63 @@ export default function App() {
     setTicketsState((prev) =>
       prev.map((t) => (t.id === ticketId ? { ...t, status, serviceId: serviceId ?? (status === 'nuevo' ? null : t.serviceId ?? null) } : t))
     );
+  };
+
+  // Material deliveries, fitted into the technicians' planned routes
+  const [deliveries, setDeliveriesState] = useState<Delivery[]>([]);
+  useCloudCollection('deliveries', deliveries, setDeliveriesState);
+  const [convertingDeliveryId, setConvertingDeliveryId] = useState<string | null>(null);
+
+  const updateDelivery = (id: string, patch: Partial<Delivery>) =>
+    setDeliveriesState((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)));
+
+  const serviceFromDelivery = (d: Delivery, techId: string | null, date: string): ServiceJob => ({
+    id: `srv-${Date.now()}`,
+    code: `ENT-${d.id.slice(-4)}`,
+    customerName: d.facility ? `${d.facility}${d.customerName ? ` (${d.customerName})` : ''}` : d.customerName,
+    customerPhone: d.customerPhone,
+    title: 'Entrega de material',
+    description: [`Entregar: ${d.items}`, d.notes].filter(Boolean).join('\n'),
+    location: { address: d.location.address, lat: d.location.lat, lng: d.location.lng, zone: d.location.zone },
+    date,
+    timeSlot: { type: 'cualquiera', label: 'Cualquier hora del día', startHour: '08:00', endHour: '19:00' },
+    estimatedDuration: d.estimatedMinutes || 20,
+    priority: 'media',
+    requiredSkills: ['Entrega y Reparto de Material'],
+    status: techId ? 'asignado' : 'pendiente',
+    assignedTechnicianId: techId,
+    manualOrder: 99,
+  });
+
+  // Inserts the delivery as a stop in that technician's day, where the detour is smallest
+  const addDeliveryToRoute = (d: Delivery, s: DeliverySuggestion) => {
+    if (!canEdit) return showToast(READ_ONLY_MESSAGE);
+    const job = serviceFromDelivery(d, s.technician.id, s.date);
+    const dayJobs = services
+      .filter((x) => x.assignedTechnicianId === s.technician.id && x.date === s.date)
+      .sort((a, b) => a.manualOrder - b.manualOrder);
+    dayJobs.splice(s.insertIndex, 0, job);
+    const order = new Map(dayJobs.map((x, i) => [x.id, i]));
+    setServices([...services.map((x) => (order.has(x.id) ? { ...x, manualOrder: order.get(x.id)! } : x)), { ...job, manualOrder: order.get(job.id)! }]);
+    updateDelivery(d.id, { status: 'planificada', serviceId: job.id });
+    notifyTechnician(s.technician.id, '📦 Entrega añadida a tu ruta', `${job.customerName}: ${d.items}`, { type: 'new_assignment', priority: 'normal', serviceCode: job.code });
+    showToast(`📦 Entrega metida en la ruta de ${s.technician.name.split(' ')[0]}`);
+  };
+
+  const openSeparateDelivery = (d: Delivery) => {
+    setConvertingDeliveryId(d.id);
+    setServiceToEdit(serviceFromDelivery(d, null, selectedDate));
+    setIsServiceModalOpen(true);
+  };
+
+  const removeDeliveryFromRoute = (d: Delivery) => {
+    if (d.serviceId) setServices(services.filter((x) => x.id !== d.serviceId));
+    updateDelivery(d.id, { status: 'pendiente', serviceId: null });
+  };
+
+  const markDeliveryDone = (d: Delivery) => {
+    if (d.serviceId) setServices(services.map((x) => (x.id === d.serviceId ? { ...x, status: 'completado' } : x)));
+    updateDelivery(d.id, { status: 'entregada' });
   };
 
   // Pre-fills a work order from a ticket; it is saved as a new service from the service form
@@ -766,6 +826,7 @@ export default function App() {
         canEdit={canEdit}
         vanWarningsCount={countVanWarnings(vans)}
         newTicketsCount={tickets.filter((t) => t.status === 'nuevo').length}
+        pendingDeliveriesCount={deliveries.filter((d) => deliveryStatus(d, services) === 'pendiente').length}
       />
 
       {/* Main Content Area */}
@@ -864,6 +925,29 @@ export default function App() {
             }}
             onDeleteTechnician={handleDeleteTechnician}
             onToggleAvailability={handleToggleAvailability}
+          />
+        )}
+
+        {currentTab === 'deliveries' && (
+          <DeliveriesView
+            deliveries={deliveries}
+            services={services}
+            technicians={technicians}
+            canEdit={canEdit}
+            onSave={(d) => {
+              if (!canEdit) return showToast(READ_ONLY_MESSAGE);
+              setDeliveriesState((prev) => (prev.some((x) => x.id === d.id) ? prev.map((x) => (x.id === d.id ? d : x)) : [...prev, d]));
+              showToast('Entrega guardada');
+            }}
+            onDelete={(id) => {
+              if (!canEdit) return showToast(READ_ONLY_MESSAGE);
+              setDeliveriesState((prev) => prev.filter((x) => x.id !== id));
+            }}
+            onAddToRoute={addDeliveryToRoute}
+            onCreateSeparate={openSeparateDelivery}
+            onRemoveFromRoute={removeDeliveryFromRoute}
+            onMarkDelivered={markDeliveryDone}
+            showToast={showToast}
           />
         )}
 
@@ -970,12 +1054,14 @@ export default function App() {
           setIsServiceModalOpen(false);
           setServiceToEdit(null);
           setConvertingTicketId(null);
+          setConvertingDeliveryId(null);
         }}
         serviceToEdit={serviceToEdit}
         technicians={technicians}
         onSave={(job) => {
           handleSaveService(job);
           if (convertingTicketId) setTicketStatus(convertingTicketId, 'convertido', job.id);
+          if (convertingDeliveryId) updateDelivery(convertingDeliveryId, { status: 'planificada', serviceId: job.id });
         }}
       />
 
