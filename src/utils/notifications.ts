@@ -113,6 +113,21 @@ export function sendWebPushNotification(
   }
 
   if (Notification.permission === 'granted') {
+    // Installed app (phones): notices go through the service worker, the only way Android and iPhone show them
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready
+        .then((reg) =>
+          reg.showNotification(title, {
+            body: options.body,
+            icon: './icon-192.png',
+            badge: './icon-192.png',
+            tag: options.tag || `rutatech-${Date.now()}`,
+            requireInteraction: options.isUrgent || false,
+          })
+        )
+        .catch(() => {});
+      return true;
+    }
     try {
       const notification = new Notification(title, {
         body: options.body,

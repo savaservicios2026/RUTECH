@@ -1,6 +1,6 @@
 // RUTECH service worker: keeps the app shell available offline.
 // Pages are fetched network-first so new versions show up as soon as there is signal.
-const CACHE = 'rutech-shell-v5';
+const CACHE = 'rutech-shell-v6';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'])));
@@ -43,5 +43,16 @@ self.addEventListener('fetch', (event) => {
           return res;
         })
     )
+  );
+});
+
+// Tapping a notice opens the app (or brings it to the front)
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+      const open = wins.find((w) => 'focus' in w);
+      return open ? open.focus() : self.clients.openWindow('./');
+    })
   );
 });

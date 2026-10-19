@@ -100,50 +100,16 @@ export default function App() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(() => {
     return getNotificationPermissionState();
   });
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
-    try {
-      const saved = localStorage.getItem('rutatech_notifications_v3');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return [
-      {
-        id: 'notif-1',
-        title: '🛠️ Nuevo Montaje Asignado (Renault Master L2H2)',
-        message: 'Asignado servicio GAL-104 (Gimnasio Santa Isabel Santiago): entrega de discos y montaje de prensa 45º.',
-        technicianId: 'tech-sergio',
-        technicianName: 'Sergio',
-        type: 'new_assignment',
-        priority: 'normal',
-        timestamp: 'Hace 15 min',
-        read: false,
-        serviceCode: 'GAL-104',
-      },
-      {
-        id: 'notif-2',
-        title: '🚨 Avería Urgente en Cinta (Peugeot e-Rifter)',
-        message: 'Avería prioritaria en Termaria Casa del Agua (A Coruña): rotura de banda Technogym. Salida con repuesto.',
-        technicianId: 'tech-manuel',
-        technicianName: 'Manuel',
-        type: 'urgent_change',
-        priority: 'urgente',
-        timestamp: 'Hace 30 min',
-        read: false,
-        serviceCode: 'GAL-101',
-      },
-      {
-        id: 'notif-3',
-        title: '⚡ Ruta Asturias / León Optimizada (Opel Movano L3H2)',
-        message: 'Itinerario de montaje de estructuras en GoFit Gijón y reparación en Ponferrada enlazado por A-6/A-8.',
-        technicianId: 'tech-juanma',
-        technicianName: 'Juanma',
-        type: 'route_optimized',
-        priority: 'normal',
-        timestamp: 'Hace 1 hora',
-        read: true,
-        serviceCode: 'AST-107',
-      },
-    ];
-  });
+  // In-app notices, shared: each technician gets the ones addressed to them, the office the rest
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  useCloudCollection('notifications', notifications, setNotifications);
+  const myNotifications = useMemo(
+    () =>
+      notifications
+        .filter((n) => (access.role === 'tecnico' ? n.technicianId === access.technicianId : true))
+        .sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || '')),
+    [notifications, access]
+  );
 
   // Modals state
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
@@ -240,7 +206,6 @@ export default function App() {
     const order = new Map(dayJobs.map((x, i) => [x.id, i]));
     setServices([...services.map((x) => (order.has(x.id) ? { ...x, manualOrder: order.get(x.id)! } : x)), { ...job, manualOrder: order.get(job.id)! }]);
     updateDelivery(d.id, { status: 'planificada', serviceId: job.id });
-    notifyTechnician(s.technician.id, '📦 Entrega añadida a tu ruta', `${job.customerName}: ${d.items}`, { type: 'new_assignment', priority: 'normal', serviceCode: job.code });
     showToast(`📦 Entrega metida en la ruta de ${s.technician.name.split(' ')[0]}`);
   };
 
@@ -362,6 +327,7 @@ export default function App() {
   // and may add or remove their own stops at the warehouse (the database rules match)
   const setStoredServices = (proposed: ServiceJob[]) => {
     if (canEdit) {
+      notifyNewAssignments(servicesRef.current, proposed);
       setServicesState(proposed);
       return;
     }
@@ -407,9 +373,28 @@ export default function App() {
     });
   }, [technicians, canEdit]);
 
+  // A notice that arrives while the app is open pops up on the phone or computer it is meant for
+  const appStartRef = useRef(new Date().toISOString());
+  const shownRef = useRef(new Set<string>());
   useEffect(() => {
-    try { localStorage.setItem('rutatech_notifications_v3', JSON.stringify(notifications)); } catch {}
-  }, [notifications]);
+    myNotifications.forEach((n) => {
+      if (n.read || shownRef.current.has(n.id) || (n.timestamp || '') < appStartRef.current) return;
+      shownRef.current.add(n.id);
+      const forMe = access.role === 'tecnico' ? n.technicianId === access.technicianId : n.technicianId === 'all';
+      if (!forMe) return;
+      sendWebPushNotification(n.title, { body: n.message, isUrgent: n.priority === 'urgente', tag: n.id });
+      showToast(`🔔 ${n.title}`);
+    });
+  }, [myNotifications]);
+
+  // The office keeps the list short: notices older than 30 days are removed
+  useEffect(() => {
+    if (!canEdit) return;
+    const limit = new Date(Date.now() - 30 * 864e5).toISOString();
+    if (notifications.some((n) => (n.timestamp || '') < limit)) {
+      setNotifications((prev) => prev.filter((n) => (n.timestamp || '') >= limit));
+    }
+  }, [notifications, canEdit]);
 
   // Recalculate routes, stops and conflicts on every state update
   const { updatedServices, summaries, conflictsCount } = useMemo(() => {
@@ -472,35 +457,45 @@ export default function App() {
   ) => {
     const tech = technicians.find(t => t.id === techId);
     const isUrgent = options?.priority === 'urgente' || options?.type === 'urgent_change';
-
     const newNotif: AppNotification = {
       id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       title,
       message,
       technicianId: techId,
-      technicianName: tech ? tech.name : 'Equipo Técnico',
+      technicianName: tech ? tech.name : 'Oficina',
       type: options?.type || (isUrgent ? 'urgent_change' : 'new_assignment'),
       priority: options?.priority || (isUrgent ? 'urgente' : 'normal'),
-      timestamp: 'Ahora mismo',
+      timestamp: new Date().toISOString(),
       read: false,
       serviceCode: options?.serviceCode,
       serviceId: options?.serviceId,
     };
+    setNotifications(prev => [JSON.parse(JSON.stringify(newNotif)), ...prev]);
+  };
 
-    setNotifications(prev => [newNotif, ...prev]);
-
-    // Dispatch Web Push notification to browser
-    sendWebPushNotification(title, {
-      body: `${tech ? `[Para ${tech.name}] ` : ''}${message}`,
-      isUrgent,
-      tag: `rutatech-${techId}-${Date.now()}`,
-      onClick: () => {
-        setSelectedTechnicianId(techId);
-        setCurrentTab('map');
-      },
+  // Every technician newly put on a job (breakdown, service or delivery) gets a notice
+  const notifyNewAssignments = (before: ServiceJob[], after: ServiceJob[]) => {
+    const old = new Map(before.map((s) => [s.id, s]));
+    after.forEach((job) => {
+      if (job.kind === 'nave' || job.status === 'completado') return;
+      const prevIds = old.has(job.id) ? teamIds(old.get(job.id)!) : [];
+      const isDelivery = job.code.startsWith('ENT-');
+      const isBreakdown = job.code.startsWith('AV-');
+      const what = isDelivery ? '📦 Nueva entrega' : isBreakdown ? '🚨 Nueva avería' : '🛠️ Nuevo servicio';
+      const when = `${new Date(`${job.date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}${
+        job.timeSlot.type === 'cualquiera' ? '' : ` · ${job.timeSlot.startHour}-${job.timeSlot.endHour}`
+      }`;
+      teamIds(job)
+        .filter((id) => !prevIds.includes(id))
+        .forEach((techId) =>
+          notifyTechnician(techId, `${what} para ti`, `${job.customerName} · ${job.title} · ${when} · ${job.location.address}`, {
+            type: job.priority === 'urgente' ? 'urgent_change' : 'new_assignment',
+            priority: job.priority === 'urgente' ? 'urgente' : 'normal',
+            serviceCode: job.code,
+            serviceId: job.id,
+          })
+        );
     });
-
-    showToast(`${isUrgent ? '🚨 AVISO URGENTE: ' : '🔔 '}${title}`);
   };
 
   // 1. Run Global Smart Optimization
@@ -618,21 +613,8 @@ export default function App() {
     setServices(updated);
     if (targetTechId && targetJob) {
       const tech = technicians.find(t => t.id === targetTechId);
-      const isUrgent = targetJob.priority === 'urgente';
       showToast(`Servicio reasignado a ${tech?.name || 'técnico'}`);
 
-      // Web push alert to the assigned technician
-      notifyTechnician(
-        targetTechId,
-        isUrgent ? '🚨 ¡Avería Urgente Asignada a tu Ruta!' : '🛠️ Nuevo Servicio Asignado',
-        `${targetJob.title} (${targetJob.customerName}) en ${targetJob.location.address}. Franja: ${targetJob.timeSlot.label}`,
-        {
-          type: isUrgent ? 'urgent_change' : 'new_assignment',
-          priority: targetJob.priority,
-          serviceCode: targetJob.code,
-          serviceId: targetJob.id,
-        }
-      );
     } else {
       showToast(`Servicio pasado a pendientes sin asignar`);
     }
@@ -759,12 +741,15 @@ export default function App() {
   };
 
   const handleMarkAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    const mine = new Set(myNotifications.map((n) => n.id));
+    setNotifications(prev => prev.map(n => (mine.has(n.id) ? { ...n, read: true } : n)));
     showToast('Todas las notificaciones marcadas como leídas');
   };
 
   const handleClearAllNotifications = () => {
-    setNotifications([]);
+    // Technicians can only mark theirs as read; the office deletes what it sees
+    const mine = new Set(myNotifications.map((n) => n.id));
+    setNotifications(prev => (canEdit ? prev.filter(n => !mine.has(n.id)) : prev.map(n => (mine.has(n.id) ? { ...n, read: true } : n))));
     showToast('Historial de notificaciones borrado');
   };
 
@@ -857,9 +842,9 @@ export default function App() {
 
     // Notify coordinator and dispatcher about in situ update
     notifyTechnician(
-      targetJob?.assignedTechnicianId || 'all',
-      `📝 Parte In Situ Registrado: ${targetJob?.code || ''}`,
-      `Estado: ${newStatus.toUpperCase()}${extraDurationMinutes ? ` (Se alarga +${extraDurationMinutes}m)` : ''}. Firmado por: ${report.customerSignatureName || targetJob?.customerName}.`,
+      'all',
+      `📝 Parte de trabajo ${targetJob?.code || ''}: ${newStatus === 'completado' ? 'cerrado' : 'actualizado'}`,
+      `${targetJob?.customerName || ''}${extraDurationMinutes ? ` · se alarga +${extraDurationMinutes} min` : ''}${report.customerSignatureName ? ` · firmado por ${report.customerSignatureName}` : ''}`,
       {
         type: extraDurationMinutes ? 'urgent_change' : 'new_assignment',
         priority: extraDurationMinutes ? 'alta' : 'normal',
@@ -926,7 +911,7 @@ export default function App() {
         onOpenExport={() => setIsExportModalOpen(true)}
         onOpenConflicts={() => setIsConflictsModalOpen(true)}
         onOpenNotifications={() => setIsNotificationsModalOpen(true)}
-        unreadNotificationsCount={notifications.filter(n => !n.read).length}
+        unreadNotificationsCount={myNotifications.filter(n => !n.read).length}
         isOptimizing={isOptimizing}
         canEdit={canEdit}
         vanWarningsCount={countVanWarnings(vans)}
@@ -1237,7 +1222,7 @@ export default function App() {
       <NotificationsModal
         isOpen={isNotificationsModalOpen}
         onClose={() => setIsNotificationsModalOpen(false)}
-        notifications={notifications}
+        notifications={myNotifications}
         permissionState={notificationPermission}
         onPermissionChange={setNotificationPermission}
         onMarkAsRead={handleMarkAsRead}
