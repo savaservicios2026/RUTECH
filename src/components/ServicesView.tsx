@@ -35,6 +35,8 @@ interface ServicesViewProps {
   onEditService: (service: ServiceJob) => void;
   onDeleteService: (serviceId: string) => void;
   onAssignJob: (serviceId: string, technicianId: string | null) => void;
+  onOpenWorkOrder: (service: ServiceJob) => void;
+  onScheduleReturn: (service: ServiceJob) => void;
 }
 
 const formatDay = (date: string) =>
@@ -48,6 +50,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   onEditService,
   onDeleteService,
   onAssignJob,
+  onOpenWorkOrder,
+  onScheduleReturn,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDay, setSelectedDay] = useState<'day' | 'upcoming' | 'all'>('day');
@@ -217,6 +221,39 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               ))}
             </div>
           </div>
+
+          {/* Work order result */}
+          {job.inSituReport?.outcome && (
+            <div
+              className={`mb-3 p-2 rounded-lg border text-xs ${
+                job.inSituReport.outcome === 'resuelto'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-amber-50 border-amber-300 text-amber-900'
+              }`}
+            >
+              <div className="font-bold">
+                {job.inSituReport.outcome === 'resuelto' ? '✅ Parte cerrado: resuelto' : '🔁 Parte cerrado: hay que volver'}
+              </div>
+              {job.inSituReport.returnReason && <div>{job.inSituReport.returnReason}</div>}
+              {job.inSituReport.technicalNotes && <div className="italic text-slate-600 mt-0.5">"{job.inSituReport.technicalNotes}"</div>}
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                <button
+                  onClick={() => onOpenWorkOrder(job)}
+                  className="px-2 py-1 bg-white border border-slate-300 rounded-md font-semibold text-slate-700 cursor-pointer"
+                >
+                  Ver parte
+                </button>
+                {job.inSituReport.outcome === 'volver' && (
+                  <button
+                    onClick={() => onScheduleReturn(job)}
+                    className="px-2 py-1 bg-amber-500 text-white rounded-md font-semibold cursor-pointer"
+                  >
+                    Programar vuelta
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Conflict or Warning Notice */}
           {hasConflict && (

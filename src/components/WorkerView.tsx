@@ -262,7 +262,11 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                       <div className="flex items-center justify-between font-bold text-emerald-900">
                         <span className="flex items-center gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          Parte In Situ Registrado ({job.inSituReport.updatedAt || 'Hoy'})
+                          {job.inSituReport.outcome === 'resuelto'
+                            ? 'Parte cerrado: resuelto'
+                            : job.inSituReport.outcome === 'volver'
+                            ? `Parte cerrado: hay que volver${job.inSituReport.returnReason ? ` (${job.inSituReport.returnReason})` : ''}`
+                            : `Parte guardado sin cerrar (${job.inSituReport.updatedAt || 'hoy'})`}
                         </span>
                         {job.inSituReport.customerSignature && (
                           <span className="text-[10px] bg-emerald-200/70 text-emerald-800 px-1.5 py-0.2 rounded font-semibold">
@@ -302,7 +306,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                       className="w-full py-2.5 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
                     >
                       <FileText className="w-4 h-4 text-amber-300" />
-                      <span>{job.inSituReport ? 'Editar Parte y Firma In Situ' : '📝 Rellenar Parte In Situ (Firma, Horas y Notas)'}</span>
+                      <span>{job.inSituReport?.outcome ? '📝 Ver / editar parte de trabajo' : '📝 Parte de trabajo'}</span>
                     </button>
                   )}
 

@@ -48,7 +48,9 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
-  const [currentTab, setCurrentTab] = useState<'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans' | 'tickets'>('map');
+  const [currentTab, setCurrentTab] = useState<'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans' | 'tickets'>(
+    access.role === 'tecnico' ? 'worker' : 'map'
+  );
 
   // Load from localStorage or initial mock data
   const [technicians, setTechniciansState] = useState<Technician[]>(() => {
@@ -197,6 +199,30 @@ export default function App() {
       manualOrder: 99,
     };
     setConvertingTicketId(ticket.id);
+    setServiceToEdit(draft);
+    setIsServiceModalOpen(true);
+  };
+
+  // Names of everyone working a job (team jobs are one record per technician with the same code)
+  const teamNamesFor = (job: ServiceJob) =>
+    technicians
+      .filter((t) => services.some((s) => s.code === job.code && s.date === job.date && s.assignedTechnicianId === t.id))
+      .map((t) => t.name)
+      .join(', ') || technicians.find((t) => t.id === job.assignedTechnicianId)?.name || '';
+
+  // Pre-fills a new visit for a job whose work order says "hay que volver"
+  const openReturnVisit = (job: ServiceJob) => {
+    const draft: ServiceJob = {
+      ...job,
+      id: `srv-${Date.now()}`,
+      code: /-V\d*$/.test(job.code) ? job.code : `${job.code}-V`,
+      description: [`Vuelta: ${job.inSituReport?.returnReason || ''}`, job.description].filter(Boolean).join('\n'),
+      date: selectedDate > job.date ? selectedDate : job.date,
+      status: job.assignedTechnicianId ? 'asignado' : 'pendiente',
+      manualOrder: 99,
+      inSituReport: undefined,
+      conflict: undefined,
+    };
     setServiceToEdit(draft);
     setIsServiceModalOpen(true);
   };
@@ -676,7 +702,14 @@ export default function App() {
       }
     );
 
-    showToast(`✓ Parte in situ de ${targetJob?.customerName} guardado con éxito`);
+    if (report.outcome === 'volver' && newStatus === 'completado') {
+      notifyTechnician('all', `🔁 Hay que volver: ${targetJob?.code || ''}`, `${targetJob?.customerName || ''}: ${report.returnReason || ''}`, {
+        type: 'urgent_change',
+        priority: 'alta',
+        serviceCode: targetJob?.code,
+      });
+    }
+    showToast(`✓ Parte de trabajo de ${targetJob?.customerName} guardado`);
   };
 
   // 12. Reset data to factory demo
@@ -807,6 +840,11 @@ export default function App() {
             }}
             onDeleteService={handleDeleteService}
             onAssignJob={handleReassignJob}
+            onOpenWorkOrder={(service) => {
+              setServiceForInSitu(service);
+              setIsInSituModalOpen(true);
+            }}
+            onScheduleReturn={openReturnVisit}
           />
         )}
 
@@ -998,6 +1036,7 @@ export default function App() {
           setServiceForInSitu(null);
         }}
         service={serviceForInSitu}
+        technicianNames={serviceForInSitu ? teamNamesFor(serviceForInSitu) : ''}
         onSaveInSituReport={handleSaveInSituReport}
       />
     </div>

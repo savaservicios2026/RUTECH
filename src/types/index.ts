@@ -181,6 +181,10 @@ export interface ServiceJob {
     incidentType?: 'none' | 'ausente' | 'falta_pieza' | 'acceso_imposible' | 'averia_compleja';
     customerSignature?: string; // data URL of signed canvas
     customerSignatureName?: string;
+    outcome?: 'resuelto' | 'volver';
+    returnReason?: string;
+    technicianName?: string;
+    signedDate?: string; // YYYY-MM-DD
     updatedAt?: string;
   };
 }
