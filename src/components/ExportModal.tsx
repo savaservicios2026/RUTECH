@@ -395,7 +395,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               {summary && techJobs.length > 0 && (
                 <div className="p-2.5 bg-slate-100/70 rounded-lg flex items-center justify-between text-slate-700 border-t border-slate-200">
                   <div>
-                    <span className="font-bold">🏁 Fin de Jornada Estimado:</span> Regreso a Base o fin de turno
+                    <span className="font-bold">🏁 Fin de Jornada Estimado:</span> fin de turno
                   </div>
                   <span className="font-mono font-bold text-slate-800">{summary.estimatedEndTime}</span>
                 </div>

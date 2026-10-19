@@ -24,7 +24,7 @@ export const todayIso = () => {
 };
 
 /**
- * For each planned day of each technician (base -> jobs -> base), works out where the delivery
+ * For each planned day of each technician (starting point -> jobs), works out where the delivery
  * fits with the smallest detour, and how close it is to that day's jobs. Best options first.
  */
 export function suggestRoutesForDelivery(
@@ -56,17 +56,21 @@ export function suggestRoutesForDelivery(
     if (!technician) return;
     const ordered = [...jobs].sort((a, b) => a.manualOrder - b.manualOrder);
     const base = point(technician.baseLocation.lat, technician.baseLocation.lng);
-    const stops = [base, ...ordered.map((j) => point(j.location.lat, j.location.lng)), base];
-    const names = ['su base', ...ordered.map(shortName), 'su base'];
+    // Routes start at the technician's starting point and end at the last job (everyone goes home from there)
+    const stops = [base, ...ordered.map((j) => point(j.location.lat, j.location.lng))];
+    const names = ['su salida', ...ordered.map(shortName)];
 
     let best = { index: 0, detour: Infinity };
-    for (let i = 0; i < stops.length - 1; i++) {
-      const detour = km(stops[i], target) + km(target, stops[i + 1]) - km(stops[i], stops[i + 1]);
+    for (let i = 0; i < stops.length; i++) {
+      const detour =
+        i === stops.length - 1
+          ? km(stops[i], target)
+          : km(stops[i], target) + km(target, stops[i + 1]) - km(stops[i], stops[i + 1]);
       if (detour < best.detour) best = { index: i, detour };
     }
     let nearestName = names[0];
     let nearestKm = Infinity;
-    stops.slice(0, -1).forEach((p, i) => {
+    stops.forEach((p, i) => {
       const d = km(p, target);
       if (d < nearestKm) {
         nearestKm = d;
@@ -82,7 +86,7 @@ export function suggestRoutesForDelivery(
       detourKm: Math.max(0, Math.round(best.detour * 10) / 10),
       nearestKm: Math.round(nearestKm * 10) / 10,
       nearestName,
-      between: `entre ${names[best.index]} y ${names[best.index + 1]}`,
+      between: best.index === stops.length - 1 ? `después de ${names[best.index]}` : `entre ${names[best.index]} y ${names[best.index + 1]}`,
     });
   });
 

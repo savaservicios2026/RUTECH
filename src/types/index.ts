@@ -306,10 +306,22 @@ export interface CompanyInfo {
   web?: string;
 }
 
-// Every technician starts and ends the day at the warehouse
+// The company warehouse, the usual starting point
 export const WAREHOUSE: LocationPoint = {
   address: 'Nave SAVA · Rúa do Seixo, nave H1-H2, Polígono de Bértoa, 15100 Carballo (A Coruña)',
   lat: 43.222,
   lng: -8.678,
   zone: 'A Coruña y Ferrol',
 };
+
+// Starting points the team uses, recognised by their address when the stored coordinates are off
+const KNOWN_STARTS: { match: RegExp; lat: number; lng: number; zone: string }[] = [
+  { match: /b[eé]rtoa|nave sava/i, lat: WAREHOUSE.lat, lng: WAREHOUSE.lng, zone: WAREHOUSE.zone },
+  { match: /betanzos/i, lat: 43.2804, lng: -8.2121, zone: 'A Coruña y Ferrol' },
+  { match: /milladoiro/i, lat: 42.8467, lng: -8.5803, zone: 'Santiago y Barbanza' },
+];
+
+export function resolveStartLocation(loc: LocationPoint): LocationPoint {
+  const known = KNOWN_STARTS.find((k) => k.match.test(loc.address || ''));
+  return known ? { ...loc, lat: known.lat, lng: known.lng, zone: known.zone } : loc;
+}

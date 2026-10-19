@@ -166,7 +166,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                           {tech.name}
                         </div>
                         <div className="text-[11px] text-slate-500 truncate">
-                          Salida: <strong className="text-slate-700">Nave Bértoa</strong>
+                          Salida: <strong className="text-slate-700">{tech.baseLocation.address.split(',')[0]}</strong>
                         </div>
                         <div className="text-[10px] text-slate-400">
                           {tech.schedule.start} - {tech.schedule.end}

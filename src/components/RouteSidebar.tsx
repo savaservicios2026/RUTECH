@@ -103,7 +103,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
               </div>
               <div>
                 <div className="text-[11px] text-slate-400">Salida</div>
-                <div className="font-semibold text-slate-800">Nave Bértoa</div>
+                <div className="font-semibold text-slate-800 truncate">{currentTech.baseLocation.address.split(',')[0]}</div>
               </div>
               <div>
                 <div className="text-[11px] text-slate-400">Paradas</div>

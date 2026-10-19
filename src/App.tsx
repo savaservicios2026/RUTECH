@@ -7,7 +7,7 @@ import {
   TicketStatus,
   Delivery,
   CompanyInfo,
-  WAREHOUSE,
+  resolveStartLocation,
   TechnicianRouteSummary, 
   OptimizationMetrics 
 } from './types';
@@ -71,9 +71,9 @@ export default function App() {
     }
   });
 
-  // Routes always start from the warehouse, whatever is stored in each technician's record
+  // Each route starts at the technician's own starting point (no return leg)
   const technicians = useMemo(
-    () => storedTechnicians.map((t) => ({ ...t, baseLocation: WAREHOUSE })),
+    () => storedTechnicians.map((t) => ({ ...t, baseLocation: resolveStartLocation(t.baseLocation) })),
     [storedTechnicians]
   );
 

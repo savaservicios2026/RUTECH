@@ -147,7 +147,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
 
             <div className="flex justify-between text-[11px] text-slate-400 pt-1">
               <span>Jornada: <strong>{currentTech.schedule.start} - {currentTech.schedule.end}</strong></span>
-              <span>Salida: <strong>Nave Bértoa</strong></span>
+              <span>Salida: <strong>{currentTech.baseLocation.address.split(',')[0]}</strong></span>
             </div>
           </div>
         )}
