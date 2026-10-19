@@ -15,7 +15,9 @@ import {
   CalendarDays,
   Wrench,
 } from 'lucide-react';
-import { formatLongDate, printWorkOrder } from '../utils/workOrder';
+import { formatLongDate, printWorkOrder, downloadWorkOrderPdf, sendWorkOrderToCustomer } from '../utils/workOrder';
+import { baseIdOf } from '../utils/teams';
+import { AttachmentsBox } from './AttachmentsBox';
 
 interface InSituModalProps {
   isOpen: boolean;
@@ -66,6 +68,7 @@ export const InSituModal: React.FC<InSituModalProps> = ({
   const [customerSignatureName, setCustomerSignatureName] = useState('');
   const [hasSignature, setHasSignature] = useState(false);
   const [error, setError] = useState('');
+  const [sendToCustomer, setSendToCustomer] = useState(true);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawingRef = useRef(false);
@@ -195,6 +198,8 @@ export const InSituModal: React.FC<InSituModalProps> = ({
     if (!hasSignature) return setError('Falta la firma del cliente.');
     const report = buildReport(true);
     onSaveInSituReport(service.id, report, 'completado', delayMinutes - (service.inSituReport?.delayReportedMinutes || 0));
+    // The customer gets the signed work order and the review request by WhatsApp
+    if (sendToCustomer) sendWorkOrderToCustomer({ ...service, status: 'completado', inSituReport: report }, technicianNames, company);
     onClose();
   };
 
@@ -267,6 +272,9 @@ export const InSituModal: React.FC<InSituModalProps> = ({
               placeholder="Qué se ha hecho, estado de la máquina, recomendaciones..."
               className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <div className="mt-2">
+              <AttachmentsBox serviceId={baseIdOf(service.id)} section="parte" />
+            </div>
           </div>
 
           {/* Materials */}
@@ -422,6 +430,13 @@ export const InSituModal: React.FC<InSituModalProps> = ({
             />
           </div>
 
+          {service.customerPhone && (
+            <label className="flex items-start gap-2 p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 cursor-pointer">
+              <input type="checkbox" className="mt-0.5" checked={sendToCustomer} onChange={(e) => setSendToCustomer(e.target.checked)} />
+              <span>Al cerrar, enviar al cliente por WhatsApp el parte firmado en PDF y la petición de reseña</span>
+            </label>
+          )}
+
           {error && <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 font-semibold">{error}</div>}
         </div>
 
@@ -434,7 +449,16 @@ export const InSituModal: React.FC<InSituModalProps> = ({
               className="px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer"
             >
               <Printer className="w-4 h-4" />
-              <span>Imprimir / PDF</span>
+              <span>Imprimir</span>
+            </button>
+          )}
+          {service.inSituReport?.outcome && (
+            <button
+              type="button"
+              onClick={() => downloadWorkOrderPdf(service, technicianNames, company)}
+              className="px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl font-bold cursor-pointer"
+            >
+              PDF
             </button>
           )}
           <button type="button" onClick={handleSaveDraft} className="ml-auto px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold cursor-pointer">

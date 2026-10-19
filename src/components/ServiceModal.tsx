@@ -5,10 +5,21 @@ import {
   AVAILABLE_SKILLS, 
   SkillType, 
   PriorityType, 
-  CITY_ZONES,
   TimeSlotType 
 } from '../types';
-import { X, Wrench, MapPin, Calendar, Clock, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { X, Wrench, Loader2 } from 'lucide-react';
+import { geocodeAddress } from '../utils/tickets';
+import { teamIds } from '../utils/teams';
+import { AttachmentsBox } from './AttachmentsBox';
+
+const toMinutes = (t: string) => {
+  const [h, m] = (t || '0:0').split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+const addMinutes = (t: string, mins: number) => {
+  const total = Math.min(23 * 60 + 59, toMinutes(t) + (mins || 0));
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+};
 
 interface ServiceModalProps {
   isOpen: boolean;
@@ -30,29 +41,20 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
-  const [zone, setZone] = useState('Santiago y Barbanza');
   const [lat, setLat] = useState<number>(42.8782);
   const [lng, setLng] = useState<number>(-8.5448);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [timeSlotType, setTimeSlotType] = useState<TimeSlotType>('manana');
-  const [customStart, setCustomStart] = useState('09:00');
-  const [customEnd, setCustomEnd] = useState('13:00');
+  const [flexible, setFlexible] = useState(false);
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('10:30');
   const [duration, setDuration] = useState<number>(90);
   const [priority, setPriority] = useState<PriorityType>('alta');
   const [requiredSkills, setRequiredSkills] = useState<SkillType[]>(['Montaje Máquinas de Fuerza']);
-  const [assignedTechnicianId, setAssignedTechnicianId] = useState<string>('');
-
-  // Zone coordinate presets around Galicia, Asturias and León
-  const ZONE_COORDS: Record<string, { lat: number; lng: number }> = {
-    'A Coruña y Ferrol': { lat: 43.3685, lng: -8.4192 },
-    'Santiago y Barbanza': { lat: 42.8782, lng: -8.5448 },
-    'Vigo y Rías Baixas': { lat: 42.2328, lng: -8.7226 },
-    'Lugo y Mariña': { lat: 43.0125, lng: -7.5558 },
-    'Ourense e Interior': { lat: 42.3364, lng: -7.8642 },
-    'Asturias (Oviedo / Gijón)': { lat: 43.4325, lng: -5.8452 },
-    'León y El Bierzo': { lat: 42.5987, lng: -5.5671 },
-    'Ruta Nacional / Norte': { lat: 43.2500, lng: -6.8000 },
-  };
+  const [assignedIds, setAssignedIds] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [locationNote, setLocationNote] = useState<string | null>(null);
+  // Id of the job being edited, or of the new one (photos can be attached before saving)
+  const [jobId, setJobId] = useState('');
 
   useEffect(() => {
     if (serviceToEdit) {
@@ -61,48 +63,62 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
       setTitle(serviceToEdit.title);
       setDescription(serviceToEdit.description || '');
       setAddress(serviceToEdit.location.address);
-      setZone(serviceToEdit.location.zone);
       setLat(serviceToEdit.location.lat);
       setLng(serviceToEdit.location.lng);
       setDate(serviceToEdit.date);
-      setTimeSlotType(serviceToEdit.timeSlot.type);
-      setCustomStart(serviceToEdit.timeSlot.startHour);
-      setCustomEnd(serviceToEdit.timeSlot.endHour);
+      setFlexible(serviceToEdit.timeSlot.type === 'cualquiera');
+      setStartTime(serviceToEdit.timeSlot.startHour);
       setDuration(serviceToEdit.estimatedDuration);
+      setEndTime(
+        serviceToEdit.timeSlot.type === 'personalizada'
+          ? serviceToEdit.timeSlot.endHour
+          : addMinutes(serviceToEdit.timeSlot.startHour, serviceToEdit.estimatedDuration)
+      );
       setPriority(serviceToEdit.priority);
       setRequiredSkills(serviceToEdit.requiredSkills);
-      setAssignedTechnicianId(serviceToEdit.assignedTechnicianId || '');
+      setAssignedIds(teamIds(serviceToEdit));
+      setJobId(serviceToEdit.id);
     } else {
       // Defaults for new service
       setCustomerName('');
-      setCustomerPhone('+34 912 ');
+      setCustomerPhone('');
       setTitle('');
       setDescription('');
       setAddress('');
-      setZone('Santiago y Barbanza');
       setLat(42.8782);
       setLng(-8.5448);
       setDate(new Date().toISOString().split('T')[0]);
-      setTimeSlotType('manana');
-      setCustomStart('09:00');
-      setCustomEnd('12:00');
+      setFlexible(false);
+      setStartTime('09:00');
+      setEndTime('10:30');
       setDuration(90);
       setPriority('alta');
       setRequiredSkills(['Montaje Máquinas de Fuerza']);
-      setAssignedTechnicianId('');
+      setAssignedIds([]);
+      setJobId(`srv-${Date.now()}`);
     }
+    setSaving(false);
+    setLocationNote(null);
   }, [serviceToEdit, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleZoneChange = (newZone: string) => {
-    setZone(newZone);
-    if (ZONE_COORDS[newZone]) {
-      // Add slight jitter for realism
-      setLat(ZONE_COORDS[newZone].lat + (Math.random() - 0.5) * 0.02);
-      setLng(ZONE_COORDS[newZone].lng + (Math.random() - 0.5) * 0.02);
-    }
+  // Start/end times and duration stay consistent: changing the times sets the duration
+  const changeStart = (value: string) => {
+    setStartTime(value);
+    setEndTime(addMinutes(value, duration));
   };
+  const changeEnd = (value: string) => {
+    setEndTime(value);
+    const mins = toMinutes(value) - toMinutes(startTime);
+    if (mins > 0) setDuration(mins);
+  };
+  const changeDuration = (value: number) => {
+    setDuration(value);
+    if (value > 0) setEndTime(addMinutes(startTime, value));
+  };
+  const toggleTech = (id: string) =>
+    setAssignedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const toggleSkill = (skill: SkillType) => {
     if (requiredSkills.includes(skill)) {
@@ -114,64 +130,61 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
 
-    let slotLabel = 'Mañana (09:00 - 13:00)';
-    let startH = '09:00';
-    let endH = '13:00';
-
-    if (timeSlotType === 'manana') {
-      slotLabel = 'Mañana (09:00 - 13:00)';
-      startH = '09:00';
-      endH = '13:00';
-    } else if (timeSlotType === 'mediodia') {
-      slotLabel = 'Mediodía (12:00 - 15:00)';
-      startH = '12:00';
-      endH = '15:00';
-    } else if (timeSlotType === 'tarde') {
-      slotLabel = 'Tarde (15:00 - 18:30)';
-      startH = '15:00';
-      endH = '18:30';
-    } else if (timeSlotType === 'personalizada') {
-      slotLabel = `Horario (${customStart} - ${customEnd})`;
-      startH = customStart;
-      endH = customEnd;
-    } else {
-      slotLabel = 'Cualquier hora del día';
-      startH = '08:00';
-      endH = '19:00';
+    // The exact address decides where the customer is on the map
+    let point = { lat, lng };
+    const cleanAddress = address.trim();
+    if (!serviceToEdit || cleanAddress !== serviceToEdit.location.address || !serviceToEdit.location.lat) {
+      setSaving(true);
+      const found = await geocodeAddress(cleanAddress);
+      setSaving(false);
+      if (found) point = found;
+      else if (!serviceToEdit) {
+        setLocationNote('No encuentro esa dirección en el mapa. Escríbela con calle, número y localidad (o solo la localidad) y vuelve a guardar.');
+        return;
+      }
     }
 
+    const ids = assignedIds.filter((id) => technicians.some((t) => t.id === id));
+    const prevIds = serviceToEdit ? teamIds(serviceToEdit) : [];
+    const base: Partial<ServiceJob> = serviceToEdit ? { ...serviceToEdit } : {};
+    delete base.teamParentId;
     const jobToSave: ServiceJob = {
-      id: serviceToEdit ? serviceToEdit.id : `srv-${Date.now()}`,
+      ...(base as ServiceJob),
+      id: jobId,
       code: serviceToEdit ? serviceToEdit.code : `SRV-${Math.floor(100 + Math.random() * 900)}`,
       customerName: customerName.trim() || 'Cliente Sin Nombre',
       customerPhone: customerPhone.trim(),
       title: title.trim() || 'Revisión técnica',
       description: description.trim(),
       location: {
-        address: address.trim() || `Zona ${zone}, Calle Principal`,
-        zone,
-        lat,
-        lng,
+        address: cleanAddress,
+        zone: serviceToEdit?.location.zone || '',
+        lat: point.lat,
+        lng: point.lng,
       },
       date,
-      timeSlot: {
-        type: timeSlotType,
-        label: slotLabel,
-        startHour: startH,
-        endHour: endH,
-      },
+      timeSlot: flexible
+        ? { type: 'cualquiera', label: 'Sin hora fija', startHour: '08:00', endHour: '19:00' }
+        : { type: 'personalizada', label: `${startTime} - ${endTime}`, startHour: startTime, endHour: endTime },
       estimatedDuration: Number(duration) || 60,
       priority,
       requiredSkills,
-      status: assignedTechnicianId ? 'asignado' : 'pendiente',
-      assignedTechnicianId: assignedTechnicianId || null,
-      manualOrder: serviceToEdit ? serviceToEdit.manualOrder : 99,
+      // A finished job keeps its state; otherwise it follows the assignment
+      status:
+        serviceToEdit && !['pendiente', 'asignado'].includes(serviceToEdit.status)
+          ? serviceToEdit.status
+          : ids.length ? 'asignado' : 'pendiente',
+      assignedTechnicianId: ids[0] || null,
+      assignedTechnicianIds: ids.length > 1 ? ids : undefined,
+      manualOrder: serviceToEdit && prevIds[0] === ids[0] ? serviceToEdit.manualOrder : 99,
     };
+    if (!jobToSave.assignedTechnicianIds) delete jobToSave.assignedTechnicianIds;
 
-    onSave(jobToSave);
+    onSave(JSON.parse(JSON.stringify(jobToSave)));
     onClose();
   };
 
@@ -253,38 +266,32 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
             />
           </div>
 
-          {/* Location & Zone */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-2">
-              <label className="block font-semibold text-slate-700 mb-1">Dirección Completa *</label>
-              <input
-                type="text"
-                required
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Ej. Calle de Alcalá 120, Madrid"
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+          {/* Photos and files of the job */}
+          {jobId && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+              <AttachmentsBox serviceId={jobId} section="servicio" title="Fotos y archivos" />
             </div>
+          )}
 
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Zona Geográfica *</label>
-              <select
-                value={zone}
-                onChange={(e) => handleZoneChange(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-medium"
-              >
-                {CITY_ZONES.map(z => (
-                  <option key={z} value={z}>{z}</option>
-                ))}
-              </select>
-            </div>
+          {/* Location */}
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">Dirección Completa *</label>
+            <input
+              type="text"
+              required
+              value={address}
+              onChange={(e) => { setAddress(e.target.value); setLocationNote(null); }}
+              placeholder="Ej. Rúa do Seixo 5, Carballo"
+              className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-[11px] text-slate-500 mt-1">La posición en el mapa se saca de esta dirección.</p>
+            {locationNote && <p className="text-[11px] text-rose-600 mt-1 font-medium">{locationNote}</p>}
           </div>
 
-          {/* Date, Time Slot & Duration */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Fecha Prevista *</label>
+          {/* Date and time */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block font-semibold text-slate-700 mb-1">Fecha *</label>
               <input
                 type="date"
                 required
@@ -293,61 +300,49 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               />
             </div>
-
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Franja Horaria *</label>
-              <select
-                value={timeSlotType}
-                onChange={(e) => setTimeSlotType(e.target.value as TimeSlotType)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-              >
-                <option value="manana">Mañana (09:00 - 13:00)</option>
-                <option value="mediodia">Mediodía (12:00 - 15:00)</option>
-                <option value="tarde">Tarde (15:00 - 18:30)</option>
-                <option value="personalizada">Franja Personalizada...</option>
-                <option value="cualquiera">Cualquiera (Flexible)</option>
-              </select>
+              <label className="block font-semibold text-slate-700 mb-1">Hora de inicio</label>
+              <input
+                type="time"
+                value={startTime}
+                disabled={flexible}
+                onChange={(e) => changeStart(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 disabled:opacity-40"
+              />
             </div>
-
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Duración Estimada</label>
+              <label className="block font-semibold text-slate-700 mb-1">Hora de fin</label>
+              <input
+                type="time"
+                value={endTime}
+                disabled={flexible}
+                onChange={(e) => changeEnd(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 disabled:opacity-40"
+              />
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block font-semibold text-slate-700 mb-1">Duración</label>
               <div className="flex items-center gap-1">
                 <input
                   type="number"
-                  min="15"
-                  max="480"
-                  step="15"
+                  min="5"
+                  max="720"
+                  step="5"
                   value={duration}
-                  onChange={(e) => setDuration(Number(e.target.value))}
+                  onChange={(e) => changeDuration(Number(e.target.value))}
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <span className="text-slate-500 font-medium">min</span>
               </div>
             </div>
           </div>
-
-          {timeSlotType === 'personalizada' && (
-            <div className="grid grid-cols-2 gap-3 bg-blue-50/50 p-2.5 rounded-lg border border-blue-200">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Hora Inicio Pactada</label>
-                <input
-                  type="time"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Hora Fin Pactada</label>
-                <input
-                  type="time"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800"
-                />
-              </div>
-            </div>
-          )}
+          <label className="flex items-center gap-2 text-slate-600 cursor-pointer -mt-1">
+            <input type="checkbox" checked={flexible} onChange={(e) => setFlexible(e.target.checked)} />
+            Sin hora fija (se hace cuando encaje en la ruta)
+          </label>
+          <p className="text-[11px] text-slate-500 -mt-2">
+            Cuando el técnico pone en el parte su hora real de llegada y salida, la ruta usa esas horas.
+          </p>
 
           {/* Priority */}
           <div>
@@ -403,23 +398,33 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
             </div>
           </div>
 
-          {/* Initial Assignment */}
+          {/* Technicians */}
           <div>
             <label className="block font-semibold text-slate-700 mb-1">
-              Asignación Directa de Técnico (Opcional - dejar vacío para auto-asignar)
+              Técnicos (puedes marcar varios; sin marcar queda pendiente)
             </label>
-            <select
-              value={assignedTechnicianId}
-              onChange={(e) => setAssignedTechnicianId(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-            >
-              <option value="">Dejar pendiente (Asignación automática inteligente)</option>
-              {technicians.map(t => (
-                <option key={t.id} value={t.id}>
-                  {t.name} {!t.availability.isAvailableToday ? '— No disponible' : ''}
-                </option>
-              ))}
-            </select>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {technicians.map((t) => {
+                const on = assignedIds.includes(t.id);
+                return (
+                  <button
+                    type="button"
+                    key={t.id}
+                    onClick={() => toggleTech(t.id)}
+                    className={`py-2 px-2.5 rounded-lg text-left border flex items-center gap-2 cursor-pointer ${
+                      on ? 'bg-blue-50 border-blue-400 text-blue-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                    <span className="truncate">{t.name.split(' ').slice(0, 2).join(' ')}</span>
+                    <span className="ml-auto">{on ? '✓' : '+'}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {assignedIds.length > 1 && (
+              <p className="text-[11px] text-slate-500 mt-1">Un solo servicio para todo el equipo: lo que cambies aquí se cambia para todos.</p>
+            )}
           </div>
 
           {/* Buttons */}
@@ -435,7 +440,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               type="submit"
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-xs cursor-pointer transition-colors"
             >
-              {serviceToEdit ? 'Guardar Cambios' : 'Crear Servicio'}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin inline" /> : serviceToEdit ? 'Guardar Cambios' : 'Crear Servicio'}
             </button>
           </div>
         </form>

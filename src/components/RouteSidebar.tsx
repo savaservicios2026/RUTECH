@@ -20,6 +20,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { formatDuration } from '../utils/geo';
+import { StartTimeEditor } from './StartTimeEditor';
 
 interface RouteSidebarProps {
   technicians: Technician[];
@@ -31,6 +32,8 @@ interface RouteSidebarProps {
   onReassignJob: (serviceId: string, targetTechId: string | null) => void;
   onOptimizeSingleTech: (techId: string) => void;
   onSelectJob: (job: ServiceJob) => void;
+  selectedDate: string;
+  onChangeStartTime: (technicianId: string, date: string, time: string | null) => void;
 }
 
 export const RouteSidebar: React.FC<RouteSidebarProps> = ({
@@ -43,6 +46,8 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
   onReassignJob,
   onOptimizeSingleTech,
   onSelectJob,
+  selectedDate,
+  onChangeStartTime,
 }) => {
   const currentTech = technicians.find(t => t.id === selectedTechnicianId) || technicians[0];
   const summary = currentTech ? summaries.get(currentTech.id) : null;
@@ -138,8 +143,8 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
 
             <div className="text-xs">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-800">Salida de Base</span>
-                <span className="font-mono text-slate-500 font-semibold">{currentTech.schedule.start}</span>
+                <span className="font-bold text-slate-800">Salida</span>
+                <StartTimeEditor technician={currentTech} date={selectedDate} onChange={onChangeStartTime} />
               </div>
               <div className="text-[11px] text-slate-500 truncate">{currentTech.baseLocation.address}</div>
             </div>

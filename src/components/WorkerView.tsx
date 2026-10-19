@@ -19,7 +19,8 @@ import {
   ExternalLink,
   MessageSquare
 } from 'lucide-react';
-import { formatDuration } from '../utils/geo';
+import { formatDuration, calculateDistanceKm, estimateTravelTimeMinutes, minutesToTimeString } from '../utils/geo';
+import { StartTimeEditor } from './StartTimeEditor';
 
 interface WorkerViewProps {
   technicians: Technician[];
@@ -29,7 +30,13 @@ interface WorkerViewProps {
   onSelectTechnician?: (techId: string) => void;
   onOpenInSituModal?: (service: ServiceJob) => void;
   initialTechnicianId?: string;
+  onChangeStartTime: (technicianId: string, date: string, time: string | null) => void;
+  onAddWarehouseStop: (technicianId: string, minutes: number, reason: string) => void;
+  onRemoveStop: (serviceId: string) => void;
+  onOpenWorkOrders: () => void;
 }
+
+const NAVE_REASONS = ['Recoger material', 'Cargar pedido en furgón', 'Descargar material', 'Otro'];
 
 export const WorkerView: React.FC<WorkerViewProps> = ({
   technicians,
@@ -38,18 +45,30 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
   onUpdateJobStatus,
   onOpenInSituModal,
   initialTechnicianId,
+  onChangeStartTime,
+  onAddWarehouseStop,
+  onRemoveStop,
+  onOpenWorkOrders,
 }) => {
+  const [naveOpen, setNaveOpen] = useState(false);
+  const [naveMinutes, setNaveMinutes] = useState(30);
+  const [naveReason, setNaveReason] = useState(NAVE_REASONS[0]);
+  const [naveOther, setNaveOther] = useState('');
   const [activeTechId, setActiveTechId] = useState<string>(initialTechnicianId || technicians[0]?.id || '');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [completionNotes, setCompletionNotes] = useState<string>('');
 
   const currentTech = technicians.find(t => t.id === activeTechId) || technicians[0];
-  const techJobs = services
+  const allTechJobs = services
     .filter(s => s.assignedTechnicianId === currentTech?.id)
     .sort((a, b) => a.manualOrder - b.manualOrder);
+  // Finished jobs leave the list; their signed work orders are kept in "Partes de trabajo"
+  const isDone = (s: ServiceJob) => s.status === 'completado';
+  const techJobs = allTechJobs.filter((s) => !isDone(s));
+  const doneJobs = allTechJobs.filter(isDone);
 
-  const completedCount = techJobs.filter(s => s.status === 'completado').length;
-  const progressPercent = techJobs.length > 0 ? Math.round((completedCount / techJobs.length) * 100) : 0;
+  const completedCount = doneJobs.length;
+  const progressPercent = allTechJobs.length > 0 ? Math.round((completedCount / allTechJobs.length) * 100) : 0;
 
   // Open address directly in Google Maps GPS navigation
   const openGpsNavigation = (address: string, lat?: number, lng?: number) => {
@@ -65,12 +84,32 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
     window.location.href = `tel:${phone.replace(/\s+/g, '')}`;
   };
 
-  // WhatsApp quick text to client
-  const messageCustomer = (customerName: string, phone: string, timeArrival?: string) => {
-    const text = encodeURIComponent(
-      `Hola ${customerName}, le informamos de que el técnico de RUTECH va en camino hacia su dirección. Hora estimada de llegada: ${timeArrival || 'en breve'}.`
+  // WhatsApp to the customer: the technician is on the way, arriving at (now + driving time)
+  const messageCustomer = (job: ServiceJob) => {
+    const phone = (job.customerPhone || '').replace(/[^0-9]/g, '');
+    const intl = phone.length === 9 ? `34${phone}` : phone;
+    // Open WhatsApp straight away (phones block windows opened later), then fill in the message
+    const win = window.open('', '_blank');
+    const send = (fromLat: number, fromLng: number) => {
+      const minutes = estimateTravelTimeMinutes(calculateDistanceKm(fromLat, fromLng, job.location.lat, job.location.lng));
+      const now = new Date();
+      const eta = minutesToTimeString(now.getHours() * 60 + now.getMinutes() + minutes);
+      const text = encodeURIComponent(
+        `Hola ${job.customerName}, le informamos de que el técnico de SAVA va de camino. Hora estimada de llegada: ${eta} (unos ${minutes} min).`
+      );
+      const url = `https://wa.me/${intl}?text=${text}`;
+      if (win) win.location.href = url;
+      else window.location.href = url;
+    };
+    // From where the technician is now; if the phone can't tell, from the previous stop
+    const idx = allTechJobs.findIndex((s) => s.id === job.id);
+    const prev = idx > 0 ? allTechJobs[idx - 1].location : currentTech.baseLocation;
+    if (!navigator.geolocation) return send(prev.lat, prev.lng);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => send(pos.coords.latitude, pos.coords.longitude),
+      () => send(prev.lat, prev.lng),
+      { timeout: 6000, maximumAge: 120000 }
     );
-    window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${text}`, '_blank');
   };
 
   const getStatusBadge = (status: JobStatus) => {
@@ -155,6 +194,77 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
 
       {/* List of stops for this worker */}
       <div className="space-y-3">
+        {/* Stop at the warehouse before the next job */}
+        {currentTech && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl text-xs">
+            <button
+              onClick={() => setNaveOpen(!naveOpen)}
+              className="w-full flex items-center justify-between p-3 font-bold text-indigo-900 cursor-pointer"
+            >
+              <span className="flex items-center gap-2">🏭 NAVE <span className="font-normal text-indigo-700">pasar por la nave antes del próximo servicio</span></span>
+              <span>{naveOpen ? '▲' : '▼'}</span>
+            </button>
+            {naveOpen && (
+              <div className="px-3 pb-3 space-y-2.5">
+                <div>
+                  <div className="font-semibold text-slate-700 mb-1">¿Cuánto tiempo vas a estar en la nave?</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[15, 30, 45, 60, 90, 120].map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setNaveMinutes(m)}
+                        className={`px-2.5 py-1.5 rounded-lg border font-semibold cursor-pointer ${naveMinutes === m ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-300 text-slate-700'}`}
+                      >
+                        {m < 60 ? `${m} min` : `${m / 60} h`}
+                      </button>
+                    ))}
+                    <input
+                      type="number"
+                      min={5}
+                      step={5}
+                      value={naveMinutes}
+                      onChange={(e) => setNaveMinutes(Number(e.target.value))}
+                      className="w-20 px-2 py-1.5 rounded-lg border border-slate-300 bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-700 mb-1">Para qué</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {NAVE_REASONS.map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setNaveReason(r)}
+                        className={`px-2.5 py-1.5 rounded-lg border font-semibold cursor-pointer ${naveReason === r ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-300 text-slate-700'}`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                  {naveReason === 'Otro' && (
+                    <input
+                      value={naveOther}
+                      onChange={(e) => setNaveOther(e.target.value)}
+                      placeholder="Escribe el motivo"
+                      className="mt-1.5 w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white"
+                    />
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    onAddWarehouseStop(currentTech.id, Math.max(5, naveMinutes || 30), naveReason === 'Otro' ? naveOther.trim() || 'Paso por nave' : naveReason);
+                    setNaveOpen(false);
+                  }}
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Añadir parada en la nave
+                </button>
+                <p className="text-[11px] text-indigo-800">Se mete antes del próximo servicio y la ruta se recalcula sola.</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Departure Base Card */}
         {currentTech && (
           <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between text-xs">
@@ -163,12 +273,12 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                 🏠
               </div>
               <div>
-                <span className="font-bold text-slate-800 block">Punto de Salida / Almacén</span>
+                <span className="font-bold text-slate-800 block">Punto de salida</span>
                 <span className="text-slate-500 text-[11px] truncate block">{currentTech.baseLocation.address}</span>
               </div>
             </div>
             <div className="text-right">
-              <span className="font-mono font-bold text-slate-700">{currentTech.schedule.start}</span>
+              <StartTimeEditor technician={currentTech} date={selectedDate} onChange={onChangeStartTime} />
               <button
                 onClick={() => openGpsNavigation(currentTech.baseLocation.address, currentTech.baseLocation.lat, currentTech.baseLocation.lng)}
                 className="text-[11px] text-blue-600 block hover:underline cursor-pointer"
@@ -179,17 +289,52 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
           </div>
         )}
 
+        {doneJobs.length > 0 && (
+          <button
+            onClick={onOpenWorkOrders}
+            className="w-full p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center justify-between cursor-pointer"
+          >
+            <span>✅ {doneJobs.length} {doneJobs.length === 1 ? 'trabajo terminado' : 'trabajos terminados'} hoy</span>
+            <span className="underline">Ver en Partes de trabajo</span>
+          </button>
+        )}
+
         {/* Empty state */}
         {techJobs.length === 0 ? (
           <div className="bg-white p-8 rounded-2xl border border-dashed border-slate-300 text-center space-y-2">
             <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
-            <h3 className="font-bold text-slate-800 text-sm">Sin servicios programados</h3>
+            <h3 className="font-bold text-slate-800 text-sm">{doneJobs.length ? 'No quedan servicios pendientes' : 'Sin servicios programados'}</h3>
             <p className="text-xs text-slate-500">
               No hay órdenes asignadas a {currentTech?.name} para el día {selectedDate}.
             </p>
           </div>
         ) : (
-          techJobs.map((job, index) => {
+          techJobs.map((job) => {
+            const index = allTechJobs.indexOf(job);
+            if (job.kind === 'nave') {
+              return (
+                <div key={job.id} className="bg-indigo-50 rounded-2xl border border-indigo-200 p-3.5 text-xs flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center">🏭</div>
+                    <div>
+                      <div className="font-bold text-indigo-950">Nave · {job.title}</div>
+                      <div className="text-indigo-800">
+                        {job.scheduledArrival || '--:--'} – {job.scheduledDeparture || '--:--'} ({job.estimatedDuration} min)
+                        {job.travelTimeFromPrev !== undefined && ` · ${job.travelTimeFromPrev} min de viaje`}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1 items-end">
+                    <button onClick={() => onUpdateJobStatus(job.id, 'completado')} className="px-2.5 py-1.5 bg-indigo-600 text-white rounded-lg font-semibold cursor-pointer">
+                      Hecho
+                    </button>
+                    <button onClick={() => onRemoveStop(job.id)} className="text-[11px] text-indigo-700 underline cursor-pointer">
+                      Quitar
+                    </button>
+                  </div>
+                </div>
+              );
+            }
             const isSelected = selectedJobId === job.id;
             const isCompleted = job.status === 'completado';
             const isInProgress = job.status === 'en_progreso';
@@ -251,7 +396,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                   <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1.5">
                     <div className="flex items-start gap-1.5 text-slate-700">
                       <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-                      <span className="font-medium">{job.location.address} (Zona {job.location.zone})</span>
+                      <span className="font-medium">{job.location.address}</span>
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
@@ -347,7 +492,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
 
                   {/* WhatsApp Notice Button */}
                   <button
-                    onClick={() => messageCustomer(job.customerName, job.customerPhone, job.scheduledArrival)}
+                    onClick={() => messageCustomer(job)}
                     className="py-2 px-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     title="Avisar por WhatsApp de llegada"
                   >

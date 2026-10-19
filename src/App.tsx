@@ -7,6 +7,7 @@ import {
   TicketStatus,
   Delivery,
   CompanyInfo,
+  WAREHOUSE,
   resolveStartLocation,
   TechnicianRouteSummary, 
   OptimizationMetrics 
@@ -15,9 +16,11 @@ import { INITIAL_TECHNICIANS, INITIAL_SERVICES } from './data/mockData';
 import { 
   autoAssignAndOptimizeAll, 
   recalculateAllSchedules, 
-  optimizeTechnicianStopsOrder 
+  optimizeTechnicianStopsOrder,
+  technicianForDate
 } from './utils/optimizer';
-import { Header } from './components/Header';
+import { Header, AppTab } from './components/Header';
+import { WorkOrdersView } from './components/WorkOrdersView';
 import { MapView } from './components/MapView';
 import { RouteSidebar } from './components/RouteSidebar';
 import { TimelineView } from './components/TimelineView';
@@ -30,6 +33,7 @@ import { ExportModal } from './components/ExportModal';
 import { AnalyticsView } from './components/AnalyticsView';
 import { NotificationsModal } from './components/NotificationsModal';
 import { useCloudCollection } from './utils/cloudSync';
+import { expandTeams, collapseTeams, teamIds, baseIdOf } from './utils/teams';
 import { useAccess, READ_ONLY_MESSAGE, TECHNICIAN_EDITABLE_FIELDS } from './utils/access';
 import { ensureTechnicianRole, isFirebaseEnabled, signOutUser } from './utils/firebase';
 import { WorkerView } from './components/WorkerView';
@@ -57,7 +61,7 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
-  const [currentTab, setCurrentTab] = useState<'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans' | 'tickets' | 'deliveries'>(
+  const [currentTab, setCurrentTab] = useState<AppTab>(
     access.role === 'tecnico' ? 'worker' : 'map'
   );
 
@@ -77,7 +81,7 @@ export default function App() {
     [storedTechnicians]
   );
 
-  const [services, setServicesState] = useState<ServiceJob[]>(() => {
+  const [storedServices, setServicesState] = useState<ServiceJob[]>(() => {
     try {
       const saved = localStorage.getItem('rutatech_services_v3');
       return saved ? JSON.parse(saved) : INITIAL_SERVICES;
@@ -157,12 +161,15 @@ export default function App() {
   }, [technicians]);
 
   useEffect(() => {
-    try { localStorage.setItem('rutatech_services_v3', JSON.stringify(services)); } catch {}
-  }, [services]);
+    try { localStorage.setItem('rutatech_services_v3', JSON.stringify(storedServices)); } catch {}
+  }, [storedServices]);
 
   // Shared data: office, technicians and Claude work on the same technicians and services
   useCloudCollection('technicians', storedTechnicians, setTechniciansState, canEdit);
-  useCloudCollection('services', services, setServicesState, false, ROUTE_COMPUTED_KEYS);
+  useCloudCollection('services', storedServices, setServicesState, false, ROUTE_COMPUTED_KEYS);
+
+  // A team job is one record; each technician on it sees it in their own route
+  const services = useMemo(() => expandTeams(storedServices), [storedServices]);
 
   // Company vans (plate, maintenance, ITV); only office staff change them
   const [vans, setVansState] = useState<Van[]>(() => {
@@ -281,15 +288,23 @@ export default function App() {
     setIsServiceModalOpen(true);
   };
 
-  // Names of everyone working a job (team jobs are one record per technician with the same code)
-  const teamNamesFor = (job: ServiceJob) =>
-    technicians
-      .filter((t) => services.some((s) => s.code === job.code && s.date === job.date && s.assignedTechnicianId === t.id))
-      .map((t) => t.name)
-      .join(', ') || technicians.find((t) => t.id === job.assignedTechnicianId)?.name || '';
+  // The stored record behind a job shown in someone's route
+  const baseJob = (job: ServiceJob) => storedServices.find((s) => s.id === baseIdOf(job.id)) || job;
+
+  // Names of everyone working a job
+  const teamNamesFor = (job: ServiceJob) => {
+    const ids = teamIds(baseJob(job));
+    return ids.map((id) => technicians.find((t) => t.id === id)?.name).filter(Boolean).join(', ');
+  };
+
+  const openServiceEditor = (job: ServiceJob) => {
+    setServiceToEdit(baseJob(job));
+    setIsServiceModalOpen(true);
+  };
 
   // Pre-fills a new visit for a job whose work order says "hay que volver"
-  const openReturnVisit = (job: ServiceJob) => {
+  const openReturnVisit = (shown: ServiceJob) => {
+    const job = baseJob(shown);
     const draft: ServiceJob = {
       ...job,
       id: `srv-${Date.now()}`,
@@ -307,10 +322,12 @@ export default function App() {
 
   // Edits made in the app go through these: office staff change anything, technicians report
   // progress on their own jobs and keep their own record up to date (the database rules match).
-  const techniciansRef = useRef(technicians);
-  techniciansRef.current = technicians;
-  const servicesRef = useRef(services);
-  servicesRef.current = services;
+  const techniciansRef = useRef(storedTechnicians);
+  techniciansRef.current = storedTechnicians;
+  const servicesRef = useRef(storedServices);
+  servicesRef.current = storedServices;
+  const expandedRef = useRef(services);
+  expandedRef.current = services;
 
   const setTechnicians = (next: React.SetStateAction<Technician[]>) => {
     if (canEdit) {
@@ -319,8 +336,13 @@ export default function App() {
     }
     // A technician may update their own record (availability, schedule), but not their login email
     const prev = techniciansRef.current;
-    const proposed = typeof next === 'function' ? next(prev) : next;
+    let proposed = typeof next === 'function' ? next(prev) : next;
     const before = new Map(prev.map((t) => [t.id, t]));
+    // Lists built from the on-screen technicians carry corrected start coordinates; keep the stored ones
+    proposed = proposed.map((t) => {
+      const old = before.get(t.id);
+      return old && old.baseLocation.address === t.baseLocation.address ? { ...t, baseLocation: old.baseLocation } : t;
+    });
     const allowed =
       proposed.length === prev.length &&
       proposed.every((t) => {
@@ -336,19 +358,22 @@ export default function App() {
     setTechniciansState(proposed);
   };
 
-  const setServices = (next: React.SetStateAction<ServiceJob[]>) => {
+  // Saves the stored records: office staff change anything; a technician reports on their own jobs
+  // and may add or remove their own stops at the warehouse (the database rules match)
+  const setStoredServices = (proposed: ServiceJob[]) => {
     if (canEdit) {
-      setServicesState(next);
+      setServicesState(proposed);
       return;
     }
     const prev = servicesRef.current;
-    const proposed = typeof next === 'function' ? next(prev) : next;
     const before = new Map(prev.map((s) => [s.id, s]));
+    const after = new Set(proposed.map((s) => s.id));
+    const ownNave = (s: ServiceJob) => access.role === 'tecnico' && s.kind === 'nave' && s.assignedTechnicianId === access.technicianId;
     const allowed =
-      proposed.length === prev.length &&
+      prev.every((s) => after.has(s.id) || ownNave(s)) &&
       proposed.every((s) => {
         const old = before.get(s.id);
-        if (!old) return false;
+        if (!old) return ownNave(s);
         if (old === s) return true;
         const changed = Object.keys({ ...old, ...s }).filter(
           (k) => JSON.stringify((old as any)[k]) !== JSON.stringify((s as any)[k])
@@ -356,7 +381,7 @@ export default function App() {
         if (changed.length === 0) return true;
         return (
           access.role === 'tecnico' &&
-          old.assignedTechnicianId === access.technicianId &&
+          teamIds(old).includes(access.technicianId) &&
           changed.every((k) => TECHNICIAN_EDITABLE_FIELDS.includes(k))
         );
       });
@@ -365,6 +390,13 @@ export default function App() {
       return;
     }
     setServicesState(proposed);
+  };
+
+  // Changes made on the route lists (where a team job appears once per technician)
+  const setServices = (next: React.SetStateAction<ServiceJob[]>) => {
+    const prevExpanded = expandedRef.current;
+    const proposed = typeof next === 'function' ? next(prevExpanded) : next;
+    setStoredServices(collapseTeams(prevExpanded, proposed, servicesRef.current));
   };
 
   // Office: each technician's email in their record becomes their login to see the app
@@ -508,7 +540,7 @@ export default function App() {
       return;
     }
 
-    const reordered = optimizeTechnicianStopsOrder(tech, techJobs);
+    const reordered = optimizeTechnicianStopsOrder(technicianForDate(tech, selectedDate), techJobs);
     const updated = services.map(job => {
       const match = reordered.find(r => r.id === job.id);
       return match || job;
@@ -606,6 +638,61 @@ export default function App() {
     }
   };
 
+  // Start time of one technician's day (e.g. they start earlier that day); null goes back to the usual one
+  const handleChangeStartTime = (techId: string, date: string, time: string | null) => {
+    setTechnicians(
+      storedTechnicians.map((t) => {
+        if (t.id !== techId) return t;
+        const overrides = { ...(t.startTimeOverrides || {}) };
+        if (time) overrides[date] = time;
+        else delete overrides[date];
+        // Old days are not needed any more
+        Object.keys(overrides).forEach((d) => d < new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10) && delete overrides[d]);
+        return { ...t, startTimeOverrides: overrides };
+      })
+    );
+    const tech = technicians.find((t) => t.id === techId);
+    showToast(time ? `${tech?.name.split(' ')[0]} sale a las ${time} ese día: ruta recalculada` : 'Hora de salida habitual');
+  };
+
+  // A stop at the warehouse (pick up material, load an order) before the technician's next job
+  const handleAddWarehouseStop = (techId: string, minutes: number, reason: string) => {
+    const dayJobs = services
+      .filter((s) => s.assignedTechnicianId === techId && s.date === selectedDate)
+      .sort((a, b) => a.manualOrder - b.manualOrder);
+    let insertAt = 0;
+    dayJobs.forEach((j, i) => {
+      if (j.status === 'completado' || j.status === 'en_progreso') insertAt = i + 1;
+    });
+    const stop: ServiceJob = {
+      id: `srv-nave-${Date.now()}`,
+      kind: 'nave',
+      code: 'NAVE',
+      customerName: 'Nave SAVA',
+      customerPhone: '',
+      title: reason,
+      description: '',
+      location: { ...WAREHOUSE },
+      date: selectedDate,
+      timeSlot: { type: 'cualquiera', label: 'Sin hora fija', startHour: '07:00', endHour: '21:00' },
+      estimatedDuration: minutes,
+      priority: 'media',
+      requiredSkills: [],
+      status: 'asignado',
+      assignedTechnicianId: techId,
+      manualOrder: insertAt,
+    };
+    dayJobs.splice(insertAt, 0, stop);
+    const order = new Map(dayJobs.map((j, i) => [j.id, i]));
+    setServices([...services.map((s) => (order.has(s.id) && s.manualOrder !== order.get(s.id) ? { ...s, manualOrder: order.get(s.id)! } : s)), stop]);
+    showToast(`🏭 Parada en la nave añadida (${minutes} min): ruta recalculada`);
+  };
+
+  const handleRemoveStop = (serviceId: string) => {
+    setServices(services.filter((s) => s.id !== serviceId));
+    showToast('Parada quitada de la ruta');
+  };
+
   // 5. Toggle Technician Availability
   const handleToggleAvailability = (techId: string) => {
     const updated = technicians.map(t => {
@@ -626,21 +713,21 @@ export default function App() {
     showToast(`Disponibilidad de ${tech?.name} actualizada.`);
   };
 
-  // 6. Save Service (create or edit)
+  // 6. Save Service (create or edit); the form always edits the stored record
   const handleSaveService = (jobToSave: ServiceJob) => {
-    const exists = services.some(s => s.id === jobToSave.id);
+    const exists = storedServices.some(s => s.id === jobToSave.id);
     if (exists) {
-      setServices(services.map(s => (s.id === jobToSave.id ? jobToSave : s)));
+      setStoredServices(storedServices.map(s => (s.id === jobToSave.id ? jobToSave : s)));
       showToast(`Servicio ${jobToSave.code} actualizado`);
     } else {
-      setServices([jobToSave, ...services]);
+      setStoredServices([jobToSave, ...storedServices]);
       showToast(`Nuevo servicio ${jobToSave.code} creado`);
     }
   };
 
   // 7. Delete Service
   const handleDeleteService = (serviceId: string) => {
-    setServices(services.filter(s => s.id !== serviceId));
+    setStoredServices(storedServices.filter(s => s.id !== baseIdOf(serviceId)));
     showToast('Servicio eliminado');
   };
 
@@ -860,10 +947,7 @@ export default function App() {
                 summaries={summaries}
                 selectedTechnicianId={selectedTechnicianId}
                 setSelectedTechnicianId={setSelectedTechnicianId}
-                onSelectService={(job) => {
-                  setServiceToEdit(job);
-                  setIsServiceModalOpen(true);
-                }}
+                onSelectService={openServiceEditor}
               />
             </div>
 
@@ -878,10 +962,9 @@ export default function App() {
                 onMoveStop={handleMoveStop}
                 onReassignJob={handleReassignJob}
                 onOptimizeSingleTech={handleOptimizeSingleTech}
-                onSelectJob={(job) => {
-                  setServiceToEdit(job);
-                  setIsServiceModalOpen(true);
-                }}
+                onSelectJob={openServiceEditor}
+                selectedDate={selectedDate}
+                onChangeStartTime={handleChangeStartTime}
               />
             </div>
           </div>
@@ -894,10 +977,7 @@ export default function App() {
             services={dayServices}
             summaries={summaries}
             selectedDate={selectedDate}
-            onSelectJob={(job) => {
-              setServiceToEdit(job);
-              setIsServiceModalOpen(true);
-            }}
+            onSelectJob={openServiceEditor}
             onAssignJobToTech={(jobId, techId) => handleReassignJob(jobId, techId)}
             onToggleAvailability={handleToggleAvailability}
           />
@@ -906,17 +986,14 @@ export default function App() {
         {/* TAB 3: SERVICES MANAGEMENT */}
         {currentTab === 'services' && (
           <ServicesView
-            services={updatedServices}
+            services={updatedServices.filter((s) => !s.teamParentId && s.kind !== 'nave')}
             selectedDate={selectedDate}
             technicians={technicians}
             onOpenNewService={() => {
               setServiceToEdit(null);
               setIsServiceModalOpen(true);
             }}
-            onEditService={(job) => {
-              setServiceToEdit(job);
-              setIsServiceModalOpen(true);
-            }}
+            onEditService={openServiceEditor}
             onDeleteService={handleDeleteService}
             onAssignJob={handleReassignJob}
             onOpenWorkOrder={(service) => {
@@ -1028,6 +1105,25 @@ export default function App() {
               setServiceForInSitu(service);
               setIsInSituModalOpen(true);
             }}
+            onChangeStartTime={handleChangeStartTime}
+            onAddWarehouseStop={handleAddWarehouseStop}
+            onRemoveStop={handleRemoveStop}
+            onOpenWorkOrders={() => setCurrentTab('workorders')}
+          />
+        )}
+
+        {currentTab === 'workorders' && (
+          <WorkOrdersView
+            services={storedServices}
+            technicians={technicians}
+            company={company}
+            onlyTechnicianId={access.role === 'tecnico' ? access.technicianId : undefined}
+            teamNamesFor={teamNamesFor}
+            onOpen={(job) => {
+              setServiceForInSitu(job);
+              setIsInSituModalOpen(true);
+            }}
+            showToast={showToast}
           />
         )}
       </main>
@@ -1120,9 +1216,8 @@ export default function App() {
         onAutoFixAll={handleOptimizeAll}
         onAssignJob={handleReassignJob}
         onSelectJob={(job) => {
-          setServiceToEdit(job);
           setIsConflictsModalOpen(false);
-          setIsServiceModalOpen(true);
+          openServiceEditor(job);
         }}
       />
 

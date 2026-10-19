@@ -21,6 +21,12 @@ export function hasRequiredSkills(technician: Technician, requiredSkills: SkillT
   return requiredSkills.every(reqSkill => technician.skills.includes(reqSkill));
 }
 
+/** The technician as they work on that date: a start time changed for that day replaces the usual one */
+export function technicianForDate(technician: Technician, date: string): Technician {
+  const start = technician.startTimeOverrides?.[date];
+  return start ? { ...technician, schedule: { ...technician.schedule, start } } : technician;
+}
+
 /**
  * Get missing skills that a technician lacks for a job
  */
@@ -81,11 +87,9 @@ export function calculateTechnicianRoute(
     const slotEndMins = timeStringToMinutes(job.timeSlot.endHour);
 
     // If technician arrives before time window starts, can wait or adjust if reasonable
-    let waitMinutes = 0;
-    if (slotStartMins > 0 && arrivalMinutes < slotStartMins) {
-      // If arrival is way too early (more than 45 min), consider wait time
-      waitMinutes = Math.min(30, slotStartMins - arrivalMinutes);
-      arrivalMinutes += waitMinutes;
+    // A job with a start time agreed with the customer begins then, even if the technician gets there earlier
+    if (job.timeSlot.type !== 'cualquiera' && slotStartMins > 0 && arrivalMinutes < slotStartMins) {
+      arrivalMinutes = slotStartMins;
     }
 
     let departureMinutes = arrivalMinutes + job.estimatedDuration;
@@ -269,7 +273,7 @@ export function autoAssignAndOptimizeAll(
   const unassignedReasons: Record<string, string> = {};
 
   // 1. Identify active technicians available on this date
-  const activeTechnicians = technicians.filter(t => t.availability.isAvailableToday);
+  const activeTechnicians = technicians.filter(t => t.availability.isAvailableToday).map(t => technicianForDate(t, date));
 
   // Group services currently assigned vs pending
   // We can optimize the whole day's dispatch
@@ -454,7 +458,7 @@ export function recalculateAllSchedules(
     const dates = new Set(techJobs.map(s => s.date));
     dates.add(selectedDate);
     dates.forEach(date => {
-      const summary = calculateTechnicianRoute(tech, techJobs.filter(s => s.date === date));
+      const summary = calculateTechnicianRoute(technicianForDate(tech, date), techJobs.filter(s => s.date === date));
       if (date === selectedDate) {
         summaries.set(tech.id, summary);
         conflictsCount += summary.conflictsCount;

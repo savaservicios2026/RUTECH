@@ -1,8 +1,8 @@
+import { teamIds } from '../utils/teams';
 import React, { useState, useMemo } from 'react';
 import { 
   ServiceJob, 
   Technician, 
-  CITY_ZONES, 
   AVAILABLE_SKILLS, 
   SkillType, 
   PriorityType 
@@ -55,11 +55,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDay, setSelectedDay] = useState<'day' | 'upcoming' | 'all'>('day');
-  const [selectedZone, setSelectedZone] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [selectedSkill, setSelectedSkill] = useState<string>('all');
-  const [groupBy, setGroupBy] = useState<'none' | 'zone' | 'technician'>('zone');
+  const [groupBy, setGroupBy] = useState<'none' | 'technician'>('none');
   const [suggestingTechForJobId, setSuggestingTechForJobId] = useState<string | null>(null);
 
   // Filtered Services
@@ -78,8 +77,6 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
         job.title.toLowerCase().includes(searchLower) ||
         job.location.address.toLowerCase().includes(searchLower);
 
-      // Zone
-      const matchesZone = selectedZone === 'all' || job.location.zone === selectedZone;
 
       // Status
       const matchesStatus =
@@ -94,9 +91,9 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
       // Skill
       const matchesSkill = selectedSkill === 'all' || job.requiredSkills.includes(selectedSkill as SkillType);
 
-      return matchesSearch && matchesZone && matchesStatus && matchesPriority && matchesSkill;
+      return matchesSearch && matchesStatus && matchesPriority && matchesSkill;
     }).sort((a, b) => a.date.localeCompare(b.date) || a.manualOrder - b.manualOrder);
-  }, [services, searchTerm, selectedZone, selectedStatus, selectedPriority, selectedSkill, selectedDay, selectedDate]);
+  }, [services, searchTerm, selectedStatus, selectedPriority, selectedSkill, selectedDay, selectedDate]);
 
   // Helper to find qualified technicians for a specific job
   const getQualifiedCandidates = (job: ServiceJob) => {
@@ -110,12 +107,10 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           job.location.lat,
           job.location.lng
         );
-        const matchesZone = tech.baseLocation.zone === job.location.zone;
 
         let score = 100;
         if (!isAvailable) score -= 80;
         if (!matchesSkills) score -= 70;
-        if (matchesZone) score += 20;
         score -= Math.min(30, distFromBase);
 
         return {
@@ -123,7 +118,6 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           isAvailable,
           matchesSkills,
           distFromBase,
-          matchesZone,
           score,
         };
       })
@@ -152,9 +146,6 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             <div className="flex items-center gap-1.5">
               <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
                 {job.code}
-              </span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
-                {job.location.zone}
               </span>
             </div>
 
@@ -313,6 +304,15 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
         <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
           {/* Assignment dropdown */}
           <div className="flex-1">
+            {(job.assignedTechnicianIds?.length || 0) > 1 ? (
+              <button
+                onClick={() => onEditService(job)}
+                className="w-full text-left text-xs rounded-lg px-2.5 py-1.5 font-medium border bg-blue-50 text-blue-900 border-blue-200 cursor-pointer"
+                title="Cambiar el equipo"
+              >
+                👥 {job.assignedTechnicianIds!.map((id) => technicians.find((t) => t.id === id)?.name.split(' ')[0] || '?').join(' + ')}
+              </button>
+            ) : (
             <select
               value={job.assignedTechnicianId || ''}
               onChange={(e) => onAssignJob(job.id, e.target.value === '' ? null : e.target.value)}
@@ -329,6 +329,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 </option>
               ))}
             </select>
+            )}
           </div>
 
           {/* Suggest button for unassigned */}
@@ -393,14 +394,6 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 Todos
               </button>
               <button
-                onClick={() => setGroupBy('zone')}
-                className={`px-2.5 py-1.5 rounded-md cursor-pointer transition-colors ${
-                  groupBy === 'zone' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
-                }`}
-              >
-                Por Zona
-              </button>
-              <button
                 onClick={() => setGroupBy('technician')}
                 className={`px-2.5 py-1.5 rounded-md cursor-pointer transition-colors ${
                   groupBy === 'technician' ? 'bg-white text-slate-900 shadow-xs' : 'hover:text-slate-900'
@@ -421,7 +414,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
         </div>
 
         {/* Filters Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2 border-t border-slate-100 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100 text-xs">
           {/* Day filter */}
           <div>
             <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Día:</label>
@@ -433,21 +426,6 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
               <option value="day">Día seleccionado ({formatDay(selectedDate)})</option>
               <option value="upcoming">Desde hoy en adelante</option>
               <option value="all">Todos los días</option>
-            </select>
-          </div>
-
-          {/* Zone filter */}
-          <div>
-            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Zona:</label>
-            <select
-              value={selectedZone}
-              onChange={(e) => setSelectedZone(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 cursor-pointer"
-            >
-              <option value="all">Todas las zonas</option>
-              {CITY_ZONES.map(z => (
-                <option key={z} value={z}>{z}</option>
-              ))}
             </select>
           </div>
 
@@ -511,28 +489,6 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredServices.map(renderServiceCard)}
         </div>
-      ) : groupBy === 'zone' ? (
-        // Group by Zone
-        <div className="space-y-6">
-          {CITY_ZONES.map((zone) => {
-            const zoneServices = filteredServices.filter(s => s.location.zone === zone);
-            if (zoneServices.length === 0) return null;
-
-            return (
-              <div key={zone} className="space-y-3">
-                <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-                  <span className="w-3 h-3 rounded-full bg-blue-600 inline-block"></span>
-                  <h3 className="font-bold text-slate-800 text-sm">
-                    Zona {zone} ({zoneServices.length} servicios)
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {zoneServices.map(renderServiceCard)}
-                </div>
-              </div>
-            );
-          })}
-        </div>
       ) : (
         // Group by Technician
         <div className="space-y-6">
@@ -553,7 +509,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
           {/* Each Technician Group */}
           {technicians.map((tech) => {
-            const techServices = filteredServices.filter(s => s.assignedTechnicianId === tech.id);
+            const techServices = filteredServices.filter(s => teamIds(s).includes(tech.id));
             if (techServices.length === 0) return null;
 
             return (

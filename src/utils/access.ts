@@ -15,4 +15,4 @@ export const useAccess = () => useContext(AccessContext);
 export const READ_ONLY_MESSAGE = 'Solo la oficina puede modificar tareas y técnicos';
 
 // Fields a technician may change on one of their own jobs
-export const TECHNICIAN_EDITABLE_FIELDS = ['status', 'estimatedDuration', 'inSituReport', 'manualOrder'];
+export const TECHNICIAN_EDITABLE_FIELDS = ['status', 'estimatedDuration', 'inSituReport', 'manualOrder', 'manualOrderByTech'];

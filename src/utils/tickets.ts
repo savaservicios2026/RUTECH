@@ -36,9 +36,9 @@ export function zoneCenter(zone?: string): { lat: number; lng: number } {
 }
 
 /** Address to coordinates with OpenStreetMap; null when it cannot be found or there is no connection. */
-export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+async function geocodeOnce(q: string): Promise<{ lat: number; lng: number } | null> {
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=es&q=${encodeURIComponent(address)}`;
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=es&q=${encodeURIComponent(q)}`;
     const res = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!res.ok) return null;
     const data = await res.json();
@@ -49,7 +49,18 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
   }
 }
 
-function readAsDataUrl(file: Blob): Promise<string> {
+/** Finds an address on the map; if the full text isn't found, tries it without the first parts (e.g. the gym's name). */
+export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
+  const tries = [address, ...parts.slice(1).map((_, i) => parts.slice(i + 1).join(', '))].slice(0, 4);
+  for (const q of tries) {
+    const found = await geocodeOnce(q);
+    if (found) return found;
+  }
+  return null;
+}
+
+export function readAsDataUrl(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
@@ -58,7 +69,7 @@ function readAsDataUrl(file: Blob): Promise<string> {
   });
 }
 
-async function compressImage(file: File): Promise<string> {
+export async function compressImage(file: File): Promise<string> {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {

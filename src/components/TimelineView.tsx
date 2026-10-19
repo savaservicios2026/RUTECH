@@ -314,7 +314,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   <div className="font-bold text-xs text-slate-800">{job.customerName}</div>
                   <div className="text-[11px] text-slate-600 truncate">{job.title}</div>
                   <div className="text-[11px] text-slate-500 mt-1">
-                    📍 {job.location.zone} ({job.timeSlot.label})
+                    📍 {job.location.address.split(',')[0]} ({job.timeSlot.label})
                   </div>
                   <div className="flex flex-wrap gap-1 mt-1.5">
                     {job.requiredSkills.map(s => (

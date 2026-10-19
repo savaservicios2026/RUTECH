@@ -130,6 +130,8 @@ export interface Technician {
   skills: SkillType[];
   vehicle: VehicleModel;
   maxDailyHours?: number;
+  // Start time for one particular day when it differs from the usual one (YYYY-MM-DD -> "07:30")
+  startTimeOverrides?: Record<string, string>;
 }
 
 export type TimeSlotType = 'manana' | 'mediodia' | 'tarde' | 'personalizada' | 'cualquiera';
@@ -155,8 +157,14 @@ export interface ServiceJob {
   priority: PriorityType;
   requiredSkills: SkillType[];
   status: JobStatus;
-  assignedTechnicianId: string | null;
+  assignedTechnicianId: string | null; // first (lead) technician
+  // Every technician on the job when several go together (lead first); one record for all of them
+  assignedTechnicianIds?: string[];
   manualOrder: number; // sequential position in technician's route (0, 1, 2...)
+  manualOrderByTech?: Record<string, number>; // position in each team member's own route
+  kind?: 'servicio' | 'nave'; // 'nave': a stop at the warehouse a technician adds to their day
+  // Set on the in-memory copy shown in a team member's route: the record it belongs to
+  teamParentId?: string;
   
   // Computed values during route calculation
   scheduledArrival?: string; // "09:30"
@@ -304,6 +312,19 @@ export interface CompanyInfo {
   phone: string;
   email: string;
   web?: string;
+  reviewUrl?: string; // Google review link sent to customers after a job
+}
+
+// Photos and files attached to a service (description) or to its work order (observaciones)
+export interface Attachment {
+  id: string;
+  serviceId: string;
+  section: 'servicio' | 'parte';
+  name: string;
+  type: string; // MIME type
+  dataUrl: string;
+  createdAt: string;
+  by?: string;
 }
 
 // The company warehouse, the usual starting point

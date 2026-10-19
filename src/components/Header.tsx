@@ -17,14 +17,17 @@ import {
   Smartphone,
   Truck,
   AlertOctagon,
-  Package
+  Package,
+  FileSignature
 } from 'lucide-react';
 import logoSava from '../assets/logo-sava-dark.png?inline';
 import { OptimizationMetrics } from '../types';
 
+export type AppTab = 'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans' | 'tickets' | 'deliveries' | 'workorders';
+
 interface HeaderProps {
-  currentTab: 'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans' | 'tickets' | 'deliveries';
-  setCurrentTab: (tab: 'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans' | 'tickets' | 'deliveries') => void;
+  currentTab: AppTab;
+  setCurrentTab: (tab: AppTab) => void;
   selectedDate: string;
   setSelectedDate: (date: string) => void;
   metrics: OptimizationMetrics;
@@ -296,6 +299,18 @@ export const Header: React.FC<HeaderProps> = ({
                 {pendingDeliveriesCount}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setCurrentTab('workorders')}
+            className={`flex items-center gap-2 py-2 px-3 lg:px-2.5 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+              currentTab === 'workorders'
+                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <FileSignature className="w-4 h-4" />
+            <span>Partes</span>
           </button>
 
           <button

@@ -3,15 +3,20 @@ import App from './App.tsx';
 import { LoginGate } from './components/LoginGate';
 import { SplashCover } from './components/SplashCover';
 import { PublicTicketPage } from './components/PublicTicketPage';
+import { PublicWorkOrderPage } from './components/PublicWorkOrderPage';
 import 'leaflet/dist/leaflet.css';
 import './index.css';
 
 // Customers report breakdowns at …/RUTECH/#aviso without signing in
 const isPublicTicketPage = location.hash.startsWith('#aviso');
+// …and see their signed work order at …/RUTECH/#parte/<código>
+const isPublicWorkOrder = location.hash.startsWith('#parte/');
 
 createRoot(document.getElementById('root')!).render(
   isPublicTicketPage ? (
     <PublicTicketPage />
+  ) : isPublicWorkOrder ? (
+    <PublicWorkOrderPage />
   ) : (
     <>
       <SplashCover />

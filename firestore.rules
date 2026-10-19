@@ -56,12 +56,31 @@ service cloud.firestore {
       allow write: if isOffice();
     }
     match /services/{id} {
+      function myTechId() { return get(roleDoc()).data.technicianId; }
+      function onTeam(d) {
+        return d.assignedTechnicianId == myTechId()
+          || ('assignedTechnicianIds' in d && myTechId() in d.assignedTechnicianIds);
+      }
+      // Technicians may add (and remove) their own stops at the warehouse
+      function ownNave(d) { return d.get('kind', '') == 'nave' && d.assignedTechnicianId == myTechId(); }
       allow read: if hasRole();
-      allow create, delete: if isOffice();
-      allow update: if isOffice() || (isTech()
-        && resource.data.assignedTechnicianId == get(roleDoc()).data.technicianId
+      allow create: if isOffice() || (isTech() && ownNave(request.resource.data));
+      allow delete: if isOffice() || (isTech() && ownNave(resource.data));
+      allow update: if isOffice() || (isTech() && onTeam(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['status', 'estimatedDuration', 'inSituReport', 'manualOrder']));
+             .hasOnly(['status', 'estimatedDuration', 'inSituReport', 'manualOrder', 'manualOrderByTech']));
+    }
+    // Photos and files of jobs and work orders: everyone in the team adds them
+    match /attachments/{id} {
+      allow read: if hasRole();
+      allow create: if hasRole() && request.resource.data.by == request.auth.token.email
+        && shortText(request.resource.data.dataUrl, 1000000);
+      allow delete: if isOffice() || (hasRole() && resource.data.by == request.auth.token.email);
+    }
+    // Signed work orders sent to customers: readable by whoever has the (unguessable) link
+    match /publicWorkOrders/{token} {
+      allow get: if true;
+      allow create: if hasRole();
     }
   }
 }

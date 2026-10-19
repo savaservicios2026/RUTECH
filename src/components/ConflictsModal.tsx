@@ -130,7 +130,7 @@ export const ConflictsModal: React.FC<ConflictsModalProps> = ({
                               </span>
                             </div>
                             <div className="text-slate-600 text-[11px] truncate">
-                              📍 {job.location.address} (Zona {job.location.zone}) · {job.timeSlot.label}
+                              📍 {job.location.address} · {job.timeSlot.label}
                             </div>
                             <div className="text-amber-800 font-medium text-[11px] flex items-center gap-1">
                               <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />

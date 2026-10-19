@@ -58,6 +58,8 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({ isOpen, company, onC
             {field('email', 'Correo')}
           </div>
           {field('web', 'Web (opcional)')}
+          {field('reviewUrl', 'Enlace para reseñas de Google', 'https://g.page/r/…/review')}
+          <p className="text-[11px] text-slate-500 -mt-2">Se envía al cliente por WhatsApp junto al parte firmado.</p>
         </div>
         <div className="p-3 border-t bg-slate-50 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-4 py-2 bg-slate-200 rounded-xl font-bold text-sm cursor-pointer">Cancelar</button>
