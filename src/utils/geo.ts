@@ -83,3 +83,31 @@ export function isWithinWindow(
   const end = timeStringToMinutes(endStr) + toleranceMinutes;
   return time >= start && time <= end;
 }
+
+/**
+ * Driving time and distance by real roads (free OSRM service on OpenStreetMap).
+ * Returns null when it can't be reached, so callers fall back to the straight-line estimate.
+ */
+export async function roadTravel(
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number
+): Promise<{ minutes: number; km: number } | null> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    const res = await fetch(
+      `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=false`,
+      { signal: ctrl.signal }
+    );
+    clearTimeout(timer);
+    const data = await res.json();
+    const route = data?.routes?.[0];
+    if (!route) return null;
+    // A van goes a bit slower than a car; plus a couple of minutes to park
+    return { minutes: Math.max(1, Math.round((route.duration / 60) * 1.15 + 2)), km: Math.round(route.distance / 100) / 10 };
+  } catch {
+    return null;
+  }
+}

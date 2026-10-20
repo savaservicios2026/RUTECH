@@ -19,7 +19,7 @@ import {
   ExternalLink,
   MessageSquare
 } from 'lucide-react';
-import { formatDuration, calculateDistanceKm, estimateTravelTimeMinutes, minutesToTimeString } from '../utils/geo';
+import { formatDuration, calculateDistanceKm, estimateTravelTimeMinutes, minutesToTimeString, roadTravel } from '../utils/geo';
 import { StartTimeEditor } from './StartTimeEditor';
 
 interface WorkerViewProps {
@@ -72,13 +72,11 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
   const completedCount = doneJobs.length;
   const progressPercent = allTechJobs.length > 0 ? Math.round((completedCount / allTechJobs.length) * 100) : 0;
 
-  // Open address directly in Google Maps GPS navigation
+  // Open Google Maps navigation. The written address goes first: Google finds the exact door,
+  // while the app's map point can be only the centre of the town
   const openGpsNavigation = (address: string, lat?: number, lng?: number) => {
-    let url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
-    if (lat && lng) {
-      url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-    }
-    window.open(url, '_blank');
+    const destination = address.trim() ? encodeURIComponent(address.trim()) : lat && lng ? `${lat},${lng}` : '';
+    window.open(`https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${destination}`, '_blank');
   };
 
   // Call customer phone directly
@@ -92,8 +90,9 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
     const intl = phone.length === 9 ? `34${phone}` : phone;
     // Open WhatsApp straight away (phones block windows opened later), then fill in the message
     const win = window.open('', '_blank');
-    const send = (fromLat: number, fromLng: number) => {
-      const minutes = estimateTravelTimeMinutes(calculateDistanceKm(fromLat, fromLng, job.location.lat, job.location.lng));
+    const send = async (fromLat: number, fromLng: number) => {
+      const road = await roadTravel(fromLat, fromLng, job.location.lat, job.location.lng);
+      const minutes = road?.minutes ?? estimateTravelTimeMinutes(calculateDistanceKm(fromLat, fromLng, job.location.lat, job.location.lng));
       const now = new Date();
       const eta = minutesToTimeString(now.getHours() * 60 + now.getMinutes() + minutes);
       const text = encodeURIComponent(
@@ -110,7 +109,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
     navigator.geolocation.getCurrentPosition(
       (pos) => send(pos.coords.latitude, pos.coords.longitude),
       () => send(prev.lat, prev.lng),
-      { timeout: 6000, maximumAge: 120000 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
     );
   };
 
