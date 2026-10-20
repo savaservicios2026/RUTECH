@@ -39,7 +39,9 @@ export function getMissingSkills(technician: Technician, requiredSkills: SkillTy
  */
 export function calculateTechnicianRoute(
   technician: Technician,
-  jobs: ServiceJob[]
+  jobs: ServiceJob[],
+  // The technician changed their departure that day: arrivals follow it, even before the agreed time
+  followDeparture = false
 ): TechnicianRouteSummary {
   // Sort jobs by their manualOrder
   const sortedJobs = [...jobs].sort((a, b) => a.manualOrder - b.manualOrder);
@@ -88,7 +90,7 @@ export function calculateTechnicianRoute(
 
     // If technician arrives before time window starts, can wait or adjust if reasonable
     // A job with a start time agreed with the customer begins then, even if the technician gets there earlier
-    if (job.timeSlot.type !== 'cualquiera' && slotStartMins > 0 && arrivalMinutes < slotStartMins) {
+    if (!followDeparture && job.timeSlot.type !== 'cualquiera' && slotStartMins > 0 && arrivalMinutes < slotStartMins) {
       arrivalMinutes = slotStartMins;
     }
 
@@ -458,7 +460,11 @@ export function recalculateAllSchedules(
     const dates = new Set(techJobs.map(s => s.date));
     dates.add(selectedDate);
     dates.forEach(date => {
-      const summary = calculateTechnicianRoute(technicianForDate(tech, date), techJobs.filter(s => s.date === date));
+      const summary = calculateTechnicianRoute(
+        technicianForDate(tech, date),
+        techJobs.filter(s => s.date === date),
+        !!tech.startTimeOverrides?.[date]
+      );
       if (date === selectedDate) {
         summaries.set(tech.id, summary);
         conflictsCount += summary.conflictsCount;
