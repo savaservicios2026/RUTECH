@@ -12,6 +12,7 @@ import { X, Wrench, Loader2 } from 'lucide-react';
 import { geocodeAddress } from '../utils/tickets';
 import { teamIds } from '../utils/teams';
 import { AttachmentsBox } from './AttachmentsBox';
+import { PinPicker } from './PinPicker';
 
 const toMinutes = (t: string) => {
   const [h, m] = (t || '0:0').split(':').map(Number);
@@ -59,6 +60,9 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   const [vanId, setVanId] = useState('');
   const [saving, setSaving] = useState(false);
   const [locationNote, setLocationNote] = useState<string | null>(null);
+  const [showPin, setShowPin] = useState(false);
+  const [pinMoved, setPinMoved] = useState(false);
+  const [searching, setSearching] = useState(false);
   // Id of the job being edited, or of the new one (photos can be attached before saving)
   const [jobId, setJobId] = useState('');
 
@@ -107,7 +111,26 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
     }
     setSaving(false);
     setLocationNote(null);
+    setShowPin(false);
+    setPinMoved(false);
   }, [serviceToEdit, isOpen]);
+
+  // Puts the pin where the written address is, so it can then be fine-tuned by hand
+  const searchAddressOnMap = async () => {
+    if (!address.trim()) return;
+    setSearching(true);
+    const found = await geocodeAddress(address.trim());
+    setSearching(false);
+    setShowPin(true);
+    if (found) {
+      setLat(found.lat);
+      setLng(found.lng);
+      setPinMoved(true);
+      setLocationNote(null);
+    } else {
+      setLocationNote('No encuentro esa dirección. Mueve el pin hasta el sitio exacto.');
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -145,7 +168,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
     // The exact address decides where the customer is on the map
     let point = { lat, lng };
     const cleanAddress = address.trim();
-    if (!serviceToEdit || cleanAddress !== serviceToEdit.location.address || !serviceToEdit.location.lat) {
+    if (!pinMoved && (!serviceToEdit || cleanAddress !== serviceToEdit.location.address || !serviceToEdit.location.lat)) {
       setSaving(true);
       const found = await geocodeAddress(cleanAddress);
       setSaving(false);
@@ -289,12 +312,40 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               type="text"
               required
               value={address}
-              onChange={(e) => { setAddress(e.target.value); setLocationNote(null); }}
+              onChange={(e) => { setAddress(e.target.value); setLocationNote(null); setPinMoved(false); }}
               placeholder="Ej. Rúa do Seixo 5, Carballo"
               className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <p className="text-[11px] text-slate-500 mt-1">La posición en el mapa se saca de esta dirección.</p>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <p className="text-[11px] text-slate-500">La posición en el mapa se saca de esta dirección.</p>
+              <button
+                type="button"
+                onClick={() => (showPin ? setShowPin(false) : serviceToEdit || pinMoved ? setShowPin(true) : searchAddressOnMap())}
+                className="text-[11px] font-semibold text-blue-700 underline cursor-pointer"
+              >
+                {searching ? 'Buscando…' : showPin ? 'Ocultar mapa' : '📍 Ver y ajustar el punto en el mapa'}
+              </button>
+            </div>
             {locationNote && <p className="text-[11px] text-rose-600 mt-1 font-medium">{locationNote}</p>}
+            {showPin && (
+              <div className="mt-2 space-y-1">
+                <PinPicker
+                  lat={lat}
+                  lng={lng}
+                  onChange={(la, ln) => {
+                    setLat(la);
+                    setLng(ln);
+                    setPinMoved(true);
+                  }}
+                />
+                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Arrastra el pin o toca el sitio exacto del cliente.{pinMoved ? ' Punto ajustado ✓' : ''}</span>
+                  <button type="button" onClick={searchAddressOnMap} className="font-semibold text-blue-700 underline cursor-pointer">
+                    Buscar la dirección otra vez
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Date and time */}
