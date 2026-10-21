@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Technician, ServiceJob, JobStatus, Van, vanLabel } from '../types';
 import { 
   Smartphone, 
-  Navigation, 
+  Navigation,
+  Loader2, 
   Phone, 
   CheckCircle2, 
   Clock, 
@@ -84,12 +85,14 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
     window.location.href = `tel:${phone.replace(/\s+/g, '')}`;
   };
 
-  // WhatsApp to the customer: the technician is on the way, arriving at (now + driving time)
+  // WhatsApp to the customer: the technician is on the way, arriving at (now + driving time).
+  // First the arrival is worked out, then the technician taps the ready link: phones only open
+  // WhatsApp from a direct tap, so opening it after waiting for the GPS left a blank page.
+  const [notice, setNotice] = useState<{ jobId: string; url?: string; eta?: string } | null>(null);
   const messageCustomer = (job: ServiceJob) => {
     const phone = (job.customerPhone || '').replace(/[^0-9]/g, '');
     const intl = phone.length === 9 ? `34${phone}` : phone;
-    // Open WhatsApp straight away (phones block windows opened later), then fill in the message
-    const win = window.open('', '_blank');
+    setNotice({ jobId: job.id });
     const send = async (fromLat: number, fromLng: number) => {
       const road = await roadTravel(fromLat, fromLng, job.location.lat, job.location.lng);
       const minutes = road?.minutes ?? estimateTravelTimeMinutes(calculateDistanceKm(fromLat, fromLng, job.location.lat, job.location.lng));
@@ -98,9 +101,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
       const text = encodeURIComponent(
         `Hola ${job.customerName}, le informamos de que el técnico de SAVA va de camino. Hora estimada de llegada: ${eta} (unos ${minutes} min).`
       );
-      const url = `https://wa.me/${intl}?text=${text}`;
-      if (win) win.location.href = url;
-      else window.location.href = url;
+      setNotice((n) => (n?.jobId === job.id ? { jobId: job.id, url: `https://wa.me/${intl}?text=${text}`, eta } : n));
     };
     // From where the technician is now; if the phone can't tell, from the previous stop
     const idx = allTechJobs.findIndex((s) => s.id === job.id);
@@ -492,15 +493,30 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                     <span>Llamar</span>
                   </button>
 
-                  {/* WhatsApp Notice Button */}
+                  {/* WhatsApp Notice Button: works out the arrival, then becomes the link to WhatsApp */}
+                  {notice?.jobId === job.id && notice.url ? (
+                    <a
+                      href={notice.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setTimeout(() => setNotice(null), 500)}
+                      className="py-2 px-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all animate-pulse"
+                      title="Abrir WhatsApp con el mensaje"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Enviar · {notice.eta}</span>
+                    </a>
+                  ) : (
                   <button
                     onClick={() => messageCustomer(job)}
-                    className="py-2 px-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    disabled={notice?.jobId === job.id}
+                    className="py-2 px-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-70"
                     title="Avisar por WhatsApp de llegada"
                   >
-                    <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Avisar</span>
+                    {notice?.jobId === job.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />}
+                    <span>{notice?.jobId === job.id ? 'Calculando…' : 'Avisar'}</span>
                   </button>
+                  )}
                 </div>
 
                 {/* Status Advancement Buttons for the Technician */}
