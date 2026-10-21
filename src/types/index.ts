@@ -132,6 +132,8 @@ export interface Technician {
   maxDailyHours?: number;
   // Start time for one particular day when it differs from the usual one (YYYY-MM-DD -> "07:30")
   startTimeOverrides?: Record<string, string>;
+  // Lunch break chosen for a day: from what time and for how long (minutes)
+  lunchByDate?: Record<string, { start: string; minutes: number }>;
 }
 
 export type TimeSlotType = 'manana' | 'mediodia' | 'tarde' | 'personalizada' | 'cualquiera';
@@ -223,6 +225,7 @@ export interface TechnicianRouteSummary {
   estimatedEndTime: string;
   servicesCount: number;
   conflictsCount: number;
+  lunch?: { start: string; end: string }; // when the lunch break falls in the route
 }
 
 export interface OptimizationMetrics {

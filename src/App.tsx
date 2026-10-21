@@ -318,9 +318,9 @@ export default function App() {
         if (JSON.stringify(old) === JSON.stringify(t)) return true;
         if (access.role !== 'tecnico') return false;
         if (t.id === access.technicianId) return t.email === old.email;
-        // A teammate's departure for a day they work together
-        const { startTimeOverrides: _a, ...restNew } = t;
-        const { startTimeOverrides: _b, ...restOld } = old;
+        // A teammate's departure or lunch for a day they work together
+        const { startTimeOverrides: _a, lunchByDate: _c, ...restNew } = t;
+        const { startTimeOverrides: _b, lunchByDate: _d, ...restOld } = old;
         return JSON.stringify(restNew) === JSON.stringify(restOld);
       });
     if (!allowed) {
@@ -410,10 +410,18 @@ export default function App() {
     }
   }, [notifications, canEdit]);
 
+  // Today's pending stops can't be earlier than now: recalculate every few minutes
+  const [clockTick, setClockTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setClockTick((n) => n + 1), 5 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Recalculate routes, stops and conflicts on every state update
   const { updatedServices, summaries, conflictsCount } = useMemo(() => {
     return recalculateAllSchedules(technicians, services, selectedDate);
-  }, [technicians, services, selectedDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [technicians, services, selectedDate, clockTick]);
 
   // Map, agenda, routes and worker view show only the selected day
   const dayServices = useMemo(
@@ -635,12 +643,34 @@ export default function App() {
   };
 
   // Start time of one technician's day (e.g. they start earlier that day); null goes back to the usual one
-  const handleChangeStartTime = (techId: string, date: string, time: string | null) => {
-    // Whoever goes with them that day shares the van and leaves from the same place: same departure
+  // Whoever goes with a technician that day (shared jobs): they share the van, departure and lunch
+  const crewOf = (techId: string, date: string) => {
     const crew = new Set([techId]);
     storedServices
       .filter((s) => s.date === date && s.kind !== 'nave' && teamIds(s).includes(techId))
       .forEach((s) => teamIds(s).forEach((id) => crew.add(id)));
+    return crew;
+  };
+
+  const handleChangeLunch = (techId: string, date: string, lunch: { start: string; minutes: number } | null) => {
+    const crew = crewOf(techId, date);
+    setTechnicians(
+      storedTechnicians.map((t) => {
+        if (!crew.has(t.id)) return t;
+        const byDate = { ...(t.lunchByDate || {}) };
+        if (lunch) byDate[date] = lunch;
+        else delete byDate[date];
+        Object.keys(byDate).forEach((d) => d < new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10) && delete byDate[d]);
+        return { ...t, lunchByDate: byDate };
+      })
+    );
+    const names = technicians.filter((t) => crew.has(t.id)).map((t) => t.name.split(' ')[0]).join(' y ');
+    showToast(lunch ? `${names}: comida desde las ${lunch.start} (${lunch.minutes} min), ruta recalculada` : `${names}: sin hora de comer`);
+  };
+
+  const handleChangeStartTime = (techId: string, date: string, time: string | null) => {
+    // Whoever goes with them that day shares the van and leaves from the same place: same departure
+    const crew = crewOf(techId, date);
     setTechnicians(
       storedTechnicians.map((t) => {
         if (!crew.has(t.id)) return t;
@@ -994,6 +1024,7 @@ export default function App() {
                 onSelectJob={openServiceEditor}
                 selectedDate={selectedDate}
                 onChangeStartTime={handleChangeStartTime}
+                onChangeLunch={handleChangeLunch}
               />
             </div>
           </div>
@@ -1131,6 +1162,8 @@ export default function App() {
             selectedDate={selectedDate}
             onUpdateJobStatus={handleUpdateJobStatus}
             initialTechnicianId={access.role === 'tecnico' ? access.technicianId : undefined}
+            summaries={summaries}
+            onChangeLunch={handleChangeLunch}
             vans={vans}
             onSelectTechnician={(id) => setSelectedTechnicianId(id)}
             onOpenInSituModal={(service) => {

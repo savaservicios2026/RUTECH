@@ -43,8 +43,23 @@ export function calculateTechnicianRoute(
   // The technician changed their departure that day: arrivals follow it, even before the agreed time
   followDeparture = false
 ): TechnicianRouteSummary {
-  // Sort jobs by their manualOrder
-  const sortedJobs = [...jobs].sort((a, b) => a.manualOrder - b.manualOrder);
+  // Work already started goes first, in the real order it was done; the rest by the planned order
+  const realStart = (j: ServiceJob) => (j.inSituReport?.startedAt ? timeStringToMinutes(j.inSituReport.startedAt) : 0);
+  const sortedJobs = [...jobs].sort((a, b) => {
+    const ra = realStart(a);
+    const rb = realStart(b);
+    if (ra && rb) return ra - rb;
+    if (ra || rb) return ra ? -1 : 1;
+    return a.manualOrder - b.manualOrder;
+  });
+  const day = sortedJobs[0]?.date;
+  const now = new Date();
+  const isToday = day === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  // The lunch break chosen for that day is taken at the first gap from its start time
+  const lunchPlan = day ? technician.lunchByDate?.[day] : undefined;
+  const lunchStartMins = lunchPlan ? timeStringToMinutes(lunchPlan.start) : 0;
+  let lunch: TechnicianRouteSummary['lunch'];
   
   const stops: RouteStop[] = [];
   let currentLat = technician.baseLocation.lat;
@@ -74,8 +89,24 @@ export function calculateTechnicianRoute(
 
   // Calculate each job stop
   sortedJobs.forEach((job, index) => {
+    const started = realStart(job) > 0;
+    // Today, a job not started yet cannot be reached before now
+    if (isToday && !started && job.status !== 'completado' && currentTimeMinutes < nowMinutes) {
+      currentTimeMinutes = nowMinutes;
+    }
     const distKm = calculateDistanceKm(currentLat, currentLng, job.location.lat, job.location.lng);
     const travelMins = estimateTravelTimeMinutes(distKm);
+    if (lunchPlan && !lunch) {
+      if (started && realStart(job) >= lunchStartMins + lunchPlan.minutes) {
+        // They already ate in the gap before this job
+        lunch = { start: minutesToTimeString(lunchStartMins), end: minutesToTimeString(lunchStartMins + lunchPlan.minutes) };
+      } else if (!started && currentTimeMinutes + travelMins > lunchStartMins) {
+        // They would get there after the lunch time: they eat first
+        const begin = Math.max(currentTimeMinutes, lunchStartMins);
+        lunch = { start: minutesToTimeString(begin), end: minutesToTimeString(begin + lunchPlan.minutes) };
+        currentTimeMinutes = begin + lunchPlan.minutes;
+      }
+    }
 
     totalDistanceKm += distKm;
     totalTravelMinutes += travelMins;
@@ -174,6 +205,7 @@ export function calculateTechnicianRoute(
     estimatedEndTime: minutesToTimeString(currentTimeMinutes),
     servicesCount: sortedJobs.length,
     conflictsCount,
+    lunch,
   };
 }
 

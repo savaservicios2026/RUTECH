@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { formatDuration } from '../utils/geo';
 import { StartTimeEditor } from './StartTimeEditor';
+import { LunchEditor } from './LunchEditor';
 
 interface RouteSidebarProps {
   technicians: Technician[];
@@ -34,6 +35,7 @@ interface RouteSidebarProps {
   onSelectJob: (job: ServiceJob) => void;
   selectedDate: string;
   onChangeStartTime: (technicianId: string, date: string, time: string | null) => void;
+  onChangeLunch: (technicianId: string, date: string, lunch: { start: string; minutes: number } | null) => void;
 }
 
 export const RouteSidebar: React.FC<RouteSidebarProps> = ({
@@ -48,6 +50,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
   onSelectJob,
   selectedDate,
   onChangeStartTime,
+  onChangeLunch,
 }) => {
   const currentTech = technicians.find(t => t.id === selectedTechnicianId) || technicians[0];
   const summary = currentTech ? summaries.get(currentTech.id) : null;
@@ -147,6 +150,14 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                 <StartTimeEditor technician={currentTech} date={selectedDate} onChange={onChangeStartTime} />
               </div>
               <div className="text-[11px] text-slate-500 truncate">{currentTech.baseLocation.address}</div>
+              <div className="mt-1.5">
+                <LunchEditor
+                  technician={currentTech}
+                  date={selectedDate}
+                  planned={summaries.get(currentTech.id)?.lunch}
+                  onChange={onChangeLunch}
+                />
+              </div>
             </div>
           </div>
         )}

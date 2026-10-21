@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Technician, ServiceJob, JobStatus, Van, vanLabel } from '../types';
+import { Technician, ServiceJob, JobStatus, Van, vanLabel, TechnicianRouteSummary } from '../types';
+import { LunchEditor } from './LunchEditor';
 import { 
   Smartphone, 
   Navigation,
@@ -36,6 +37,8 @@ interface WorkerViewProps {
   onRemoveStop: (serviceId: string) => void;
   onOpenWorkOrders: () => void;
   vans: Van[];
+  summaries: Map<string, TechnicianRouteSummary>;
+  onChangeLunch: (technicianId: string, date: string, lunch: { start: string; minutes: number } | null) => void;
 }
 
 const NAVE_REASONS = ['Recoger material', 'Cargar pedido en furgón', 'Descargar material', 'Otro'];
@@ -52,6 +55,8 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
   onRemoveStop,
   onOpenWorkOrders,
   vans,
+  summaries,
+  onChangeLunch,
 }) => {
   const [naveOpen, setNaveOpen] = useState(false);
   const [naveMinutes, setNaveMinutes] = useState(30);
@@ -288,6 +293,17 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                 Ver mapa
               </button>
             </div>
+          </div>
+        )}
+
+        {currentTech && (
+          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs text-xs">
+            <LunchEditor
+              technician={currentTech}
+              date={selectedDate}
+              planned={summaries.get(currentTech.id)?.lunch}
+              onChange={onChangeLunch}
+            />
           </div>
         )}
 
