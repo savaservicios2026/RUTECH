@@ -35,6 +35,7 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { NotificationsModal } from './components/NotificationsModal';
 import { useCloudCollection } from './utils/cloudSync';
 import { expandTeams, collapseTeams, teamIds, baseIdOf } from './utils/teams';
+import { placeFlexibleJob } from './utils/placement';
 import { useAccess, READ_ONLY_MESSAGE, TECHNICIAN_EDITABLE_FIELDS } from './utils/access';
 import { ensureTechnicianRole, isFirebaseEnabled, signOutUser } from './utils/firebase';
 import { WorkerView } from './components/WorkerView';
@@ -703,14 +704,31 @@ export default function App() {
 
   // 6. Save Service (create or edit); the form always edits the stored record
   const handleSaveService = (jobToSave: ServiceJob) => {
-    const exists = storedServices.some(s => s.id === jobToSave.id);
-    if (exists) {
-      setStoredServices(storedServices.map(s => (s.id === jobToSave.id ? jobToSave : s)));
-      showToast(`Servicio ${jobToSave.code} actualizado`);
-    } else {
-      setStoredServices([jobToSave, ...storedServices]);
-      showToast(`Nuevo servicio ${jobToSave.code} creado`);
+    const before = storedServices.find(s => s.id === jobToSave.id);
+    let next = before
+      ? storedServices.map(s => (s.id === jobToSave.id ? jobToSave : s))
+      : [jobToSave, ...storedServices];
+    let message = before ? `Servicio ${jobToSave.code} actualizado` : `Nuevo servicio ${jobToSave.code} creado`;
+
+    // No agreed time: the app puts it in the best gap of the route (and picks the technician if none)
+    const flexible = jobToSave.timeSlot.type === 'cualquiera' && jobToSave.kind !== 'nave' && jobToSave.status !== 'completado';
+    const moved =
+      !before ||
+      before.timeSlot.type !== 'cualquiera' ||
+      before.date !== jobToSave.date ||
+      before.estimatedDuration !== jobToSave.estimatedDuration ||
+      JSON.stringify(teamIds(before)) !== JSON.stringify(teamIds(jobToSave));
+    if (flexible && moved) {
+      const expanded = expandTeams(next);
+      const placed = placeFlexibleJob(jobToSave.id, expanded, technicians);
+      if (placed.technicianId) {
+        next = collapseTeams(expanded, placed.services, next);
+        const tech = technicians.find(t => t.id === placed.technicianId);
+        message = `${jobToSave.code}: colocado en la ruta de ${tech?.name.split(' ')[0]}${placed.arrival ? `, llegada sobre las ${placed.arrival}` : ''}`;
+      }
     }
+    setStoredServices(next);
+    showToast(message);
   };
 
   // 7. Delete Service

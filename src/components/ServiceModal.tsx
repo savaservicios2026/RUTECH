@@ -398,7 +398,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
           </div>
           <label className="flex items-center gap-2 text-slate-600 cursor-pointer -mt-1">
             <input type="checkbox" checked={flexible} onChange={(e) => setFlexible(e.target.checked)} />
-            Sin hora fija (se hace cuando encaje en la ruta)
+            Sin hora: indica solo la duración y la app lo coloca en el mejor hueco de la ruta y le pone hora
           </label>
           <p className="text-[11px] text-slate-500 -mt-2">
             Cuando el técnico pone en el parte su hora real de llegada y salida, la ruta usa esas horas.
