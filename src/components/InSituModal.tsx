@@ -23,6 +23,8 @@ interface InSituModalProps {
   isOpen: boolean;
   onClose: () => void;
   service: ServiceJob | null;
+  // A teammate closed this work order while it was open here
+  closedElsewhere?: boolean;
   technicianNames: string;
   company: CompanyInfo;
   onSaveInSituReport: (
@@ -51,6 +53,7 @@ export const InSituModal: React.FC<InSituModalProps> = ({
   isOpen,
   onClose,
   service,
+  closedElsewhere,
   technicianNames,
   company,
   onSaveInSituReport,
@@ -461,6 +464,14 @@ export const InSituModal: React.FC<InSituModalProps> = ({
               PDF
             </button>
           )}
+          {closedElsewhere ? (
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-emerald-700 font-bold">✓ Un compañero ya cerró este parte</span>
+              <button type="button" onClick={onClose} className="px-4 py-2 bg-slate-800 text-white rounded-xl font-bold cursor-pointer">
+                Salir
+              </button>
+            </div>
+          ) : (<>
           <button type="button" onClick={handleSaveDraft} className="ml-auto px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold cursor-pointer">
             Guardar sin cerrar
           </button>
@@ -472,6 +483,7 @@ export const InSituModal: React.FC<InSituModalProps> = ({
             <CheckCircle2 className="w-4 h-4" />
             <span>Cerrar parte</span>
           </button>
+          </>)}
         </div>
       </div>
     </div>

@@ -352,6 +352,8 @@ export default function App() {
           (k) => JSON.stringify((old as any)[k]) !== JSON.stringify((s as any)[k])
         );
         if (changed.length === 0) return true;
+        // Only the office reopens a closed work order
+        if (old.status === 'completado' && s.status !== 'completado') return false;
         return (
           access.role === 'tecnico' &&
           teamIds(old).includes(access.technicianId) &&
@@ -859,6 +861,12 @@ export default function App() {
     newStatus: JobStatus,
     extraDurationMinutes?: number
   ) => {
+    // A work order a teammate already closed is not reopened by a save made from an older screen
+    const live = servicesRef.current.find(s => s.id === baseIdOf(serviceId));
+    if (live?.status === 'completado' && newStatus !== 'completado') {
+      showToast('Este parte ya está cerrado: no se ha cambiado');
+      return;
+    }
     setServices(prev => prev.map(job => {
       if (job.id === serviceId) {
         const updatedDuration = extraDurationMinutes ? job.estimatedDuration + extraDurationMinutes : job.estimatedDuration;
@@ -1280,6 +1288,11 @@ export default function App() {
           setServiceForInSitu(null);
         }}
         service={serviceForInSitu}
+        closedElsewhere={
+          !!serviceForInSitu &&
+          serviceForInSitu.status !== 'completado' &&
+          storedServices.find(s => s.id === baseIdOf(serviceForInSitu.id))?.status === 'completado'
+        }
         technicianNames={serviceForInSitu ? teamNamesFor(serviceForInSitu) : ''}
         company={company}
         onSaveInSituReport={handleSaveInSituReport}

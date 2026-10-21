@@ -73,6 +73,8 @@ service cloud.firestore {
       allow create: if current() && (isOffice() || (isTech() && ownNave(request.resource.data)));
       allow delete: if isOffice() || (isTech() && ownNave(resource.data));
       allow update: if current() && (isOffice() || (isTech() && onTeam(resource.data)
+        // A closed work order stays closed (only the office reopens it)
+        && (resource.data.status != 'completado' || request.resource.data.status == 'completado')
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['status', 'estimatedDuration', 'inSituReport', 'manualOrder', 'manualOrderByTech', '_v'])));
     }
