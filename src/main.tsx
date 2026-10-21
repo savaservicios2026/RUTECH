@@ -6,6 +6,7 @@ import { PublicTicketPage } from './components/PublicTicketPage';
 import { PublicWorkOrderPage } from './components/PublicWorkOrderPage';
 import 'leaflet/dist/leaflet.css';
 import './index.css';
+import { startAutoUpdate } from './utils/autoUpdate';
 
 // Customers report breakdowns at …/RUTECH/#aviso without signing in
 const isPublicTicketPage = location.hash.startsWith('#aviso');
@@ -30,4 +31,6 @@ createRoot(document.getElementById('root')!).render(
 // Installable app: offline shell (not available, and not needed, inside Claude)
 if ('serviceWorker' in navigator && !(window as any).claude?.use && location.protocol === 'https:') {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
+  // Logged-in app (not the customers' pages): always run the latest version
+  if (!isPublicTicketPage && !isPublicWorkOrder) startAutoUpdate();
 }
