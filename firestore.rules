@@ -17,8 +17,10 @@ service cloud.firestore {
       allow read: if hasRole();
       allow delete: if isOffice();
       allow create, update: if isOffice() && current();
-      allow update: if current() && isTech() && id == get(roleDoc()).data.technicianId
-        && request.resource.data.email == resource.data.email;
+      allow update: if current() && isTech() && (
+        (id == get(roleDoc()).data.technicianId && request.resource.data.email == resource.data.email)
+        // Teammates on the same job share the van: changing the departure changes it for all of them
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['startTimeOverrides', '_v']));
     }
     // Breakdown tickets: customers send them from the public form without signing in.
     // Each one takes the next number from counters/tickets in the same transaction.

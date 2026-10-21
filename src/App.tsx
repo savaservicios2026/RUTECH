@@ -316,7 +316,12 @@ export default function App() {
         const old = before.get(t.id);
         if (!old) return false;
         if (JSON.stringify(old) === JSON.stringify(t)) return true;
-        return access.role === 'tecnico' && t.id === access.technicianId && t.email === old.email;
+        if (access.role !== 'tecnico') return false;
+        if (t.id === access.technicianId) return t.email === old.email;
+        // A teammate's departure for a day they work together
+        const { startTimeOverrides: _a, ...restNew } = t;
+        const { startTimeOverrides: _b, ...restOld } = old;
+        return JSON.stringify(restNew) === JSON.stringify(restOld);
       });
     if (!allowed) {
       showToast(READ_ONLY_MESSAGE);
@@ -629,9 +634,14 @@ export default function App() {
 
   // Start time of one technician's day (e.g. they start earlier that day); null goes back to the usual one
   const handleChangeStartTime = (techId: string, date: string, time: string | null) => {
+    // Whoever goes with them that day shares the van and leaves from the same place: same departure
+    const crew = new Set([techId]);
+    storedServices
+      .filter((s) => s.date === date && s.kind !== 'nave' && teamIds(s).includes(techId))
+      .forEach((s) => teamIds(s).forEach((id) => crew.add(id)));
     setTechnicians(
       storedTechnicians.map((t) => {
-        if (t.id !== techId) return t;
+        if (!crew.has(t.id)) return t;
         const overrides = { ...(t.startTimeOverrides || {}) };
         if (time) overrides[date] = time;
         else delete overrides[date];
@@ -640,8 +650,8 @@ export default function App() {
         return { ...t, startTimeOverrides: overrides };
       })
     );
-    const tech = technicians.find((t) => t.id === techId);
-    showToast(time ? `${tech?.name.split(' ')[0]} sale a las ${time} ese día: ruta recalculada` : 'Hora de salida habitual');
+    const names = technicians.filter((t) => crew.has(t.id)).map((t) => t.name.split(' ')[0]).join(' y ');
+    showToast(time ? `${names} sale${crew.size > 1 ? 'n' : ''} a las ${time} ese día: ruta recalculada` : `${names}: hora de salida habitual`);
   };
 
   // A stop at the warehouse (pick up material, load an order) before the technician's next job
