@@ -97,5 +97,14 @@ service cloud.firestore {
       allow get: if true;
       allow create: if hasRole();
     }
+    // Breakdowns (and their photos) sent to a supplier: readable by whoever has the link
+    match /publicTickets/{token} {
+      allow get: if true;
+      allow create: if isOffice() && current();
+    }
+    match /publicTicketMedia/{id} {
+      allow get: if true;
+      allow create: if isOffice() && current();
+    }
   }
 }

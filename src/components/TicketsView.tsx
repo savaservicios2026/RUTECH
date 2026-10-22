@@ -4,6 +4,7 @@ import { ServiceJob, Technician, Ticket, TicketMedia, TicketStatus, PriorityType
 import { calculateDistanceKm } from '../utils/geo';
 import { loadTicketMedia } from '../utils/tickets';
 import { TicketForm } from './TicketForm';
+import { SupplierPanel } from './SupplierPanel';
 
 interface TicketsViewProps {
   tickets: Ticket[];
@@ -14,6 +15,8 @@ interface TicketsViewProps {
   onSetStatus: (ticketId: string, status: TicketStatus) => void;
   onOpenService: (serviceId: string) => void;
   showToast: (msg: string) => void;
+  onUpdateTicket: (ticketId: string, change: (t: Ticket) => Partial<Ticket>) => void;
+  userEmail: string;
 }
 
 const URGENCY_RANK: Record<PriorityType, number> = { urgente: 0, alta: 1, media: 2, baja: 3 };
@@ -75,6 +78,8 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
   onSetStatus,
   onOpenService,
   showToast,
+  onUpdateTicket,
+  userEmail,
 }) => {
   const [filter, setFilter] = useState<TicketStatus>('nuevo');
   const [creating, setCreating] = useState(false);
@@ -201,6 +206,8 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
                   <MediaStrip ticketId={t.id} count={t.mediaCount} />
                 </div>
               )}
+
+              <SupplierPanel ticket={t} canEdit={canEdit} userEmail={userEmail} onUpdate={onUpdateTicket} />
 
               {t.status === 'nuevo' && (
                 <div className="rounded-lg bg-indigo-50 border border-indigo-100 p-2.5">

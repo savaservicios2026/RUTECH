@@ -165,6 +165,12 @@ export default function App() {
     );
   };
 
+  // Changes to a breakdown notice (supplier, follow-up notes)
+  const updateTicket = (ticketId: string, change: (t: Ticket) => Partial<Ticket>) => {
+    if (!canEdit) return showToast(READ_ONLY_MESSAGE);
+    setTicketsState((prev) => prev.map((t) => (t.id === ticketId ? { ...t, ...change(t) } : t)));
+  };
+
   // Company details for printed work orders
   const [settings, setSettingsState] = useState<CompanyInfo[]>([]);
   useCloudCollection('settings', settings, setSettingsState);
@@ -1116,6 +1122,8 @@ export default function App() {
             canEdit={canEdit}
             onCreateService={openServiceFromTicket}
             onSetStatus={(id, status) => setTicketStatus(id, status)}
+            onUpdateTicket={updateTicket}
+            userEmail={access.email || ''}
             onOpenService={(serviceId) => {
               const job = services.find((s) => s.id === serviceId);
               if (!job) return showToast('Ese parte de trabajo ya no existe');
