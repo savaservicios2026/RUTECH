@@ -171,7 +171,10 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
                     <span className={`text-[11px] font-bold uppercase rounded-full px-2 py-0.5 ${URGENCY_STYLE[t.urgency]}`}>{t.urgency}</span>
                     <span className="text-[11px] text-slate-400">{t.source === 'cliente' ? 'Cliente' : 'Oficina'} · {new Date(t.createdAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
-                  <div className="mt-1 font-semibold text-slate-800">{t.problem}</div>
+                  <div className="mt-1 text-base font-extrabold text-slate-900">
+                    {t.customerName}{t.facility ? <span className="font-bold text-slate-600"> · {t.facility}</span> : null}
+                  </div>
+                  <div className="mt-0.5 font-semibold text-slate-800">{t.problem}</div>
                   {t.machine && <div className="text-xs text-slate-500 flex items-center gap-1"><Wrench className="w-3.5 h-3.5" />{t.machine}</div>}
                 </div>
               </div>
@@ -179,7 +182,6 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
               {t.description && <p className="text-sm text-slate-600 whitespace-pre-line">{t.description}</p>}
 
               <div className="text-xs text-slate-600 space-y-1">
-                <div className="font-semibold text-slate-700">{t.customerName}{t.facility ? ` · ${t.facility}` : ''}</div>
                 <a href={`tel:${t.customerPhone}`} className="flex items-center gap-1 text-blue-700"><Phone className="w-3.5 h-3.5" />{t.customerPhone}</a>
                 {t.customerEmail && <div>{t.customerEmail}</div>}
                 <a
