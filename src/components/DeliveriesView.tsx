@@ -142,6 +142,12 @@ const DeliveryForm: React.FC<{
   );
 };
 
+// Orders delivered to our own warehouse in Bértoa are told apart at a glance
+const toWarehouse = (address: string) => {
+  const a = address.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return a.includes('seixo') && (a.includes('carballo') || a.includes('15100'));
+};
+
 export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
   deliveries,
   services,
@@ -212,7 +218,15 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
             const suggestions = status === 'pendiente' ? suggestRoutesForDelivery(d, services, technicians).slice(0, 4) : [];
             const overdue = status !== 'entregada' && d.deadline && d.deadline < todayIso();
             return (
-              <div key={d.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3 text-sm">
+              <div
+                key={d.id}
+                className={`rounded-xl border p-4 shadow-xs space-y-3 text-sm ${
+                  toWarehouse(d.location.address) ? 'bg-blue-100 border-blue-400' : 'bg-white border-slate-200'
+                }`}
+              >
+                {toWarehouse(d.location.address) && (
+                  <div className="text-xs font-bold text-blue-800">🏭 Entrega en la nave (Rúa do Seixo, Carballo)</div>
+                )}
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="font-bold text-slate-900">{d.facility || d.customerName}</div>
