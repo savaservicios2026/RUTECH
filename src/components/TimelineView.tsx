@@ -6,6 +6,7 @@ import {
   PriorityType 
 } from '../types';
 import { timeStringToMinutes, minutesToTimeString, formatDuration } from '../utils/geo';
+import { LunchStop, lunchSlot } from './LunchEditor';
 import { 
   Clock, 
   AlertTriangle, 
@@ -108,8 +109,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
               </div>
               {isAvailable && techJobs.length > 0 && (
                 <div className="divide-y divide-slate-100">
-                  {techJobs.map((job) => (
-                    <button key={job.id} onClick={() => onSelectJob(job)} className="w-full text-left flex gap-3 p-3 active:bg-slate-50">
+                  {summary?.lunch && lunchSlot(techJobs, summary.lunch) === 0 && <LunchStop lunch={summary.lunch} className="m-2" />}
+                  {techJobs.map((job, i) => (<React.Fragment key={job.id}>
+                    <button onClick={() => onSelectJob(job)} className="w-full text-left flex gap-3 p-3 active:bg-slate-50">
                       <div className="w-14 shrink-0 font-mono text-xs font-bold text-slate-700 leading-5">
                         {job.scheduledArrival || '--:--'}
                         <div className="font-normal text-slate-400">{job.scheduledDeparture}</div>
@@ -125,6 +127,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                         )}
                       </div>
                     </button>
+                    {summary?.lunch && lunchSlot(techJobs, summary.lunch) === i + 1 && <LunchStop lunch={summary.lunch} className="m-2" />}
+                    </React.Fragment>
                   ))}
                 </div>
               )}
@@ -204,9 +208,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                 .sort((a, b) => a.manualOrder - b.manualOrder);
 
               const shiftPos = getPositionPercent(tech.schedule.start, tech.schedule.end);
-              const lunchPos = tech.schedule.lunchStart && tech.schedule.lunchEnd
-                ? getPositionPercent(tech.schedule.lunchStart, tech.schedule.lunchEnd)
-                : null;
+              // The lunch chosen for the day, where it falls in the route; otherwise the usual one
+              const lunchTimes = summary?.lunch || (tech.schedule.lunchStart && tech.schedule.lunchEnd ? { start: tech.schedule.lunchStart, end: tech.schedule.lunchEnd } : null);
+              const lunchPos = lunchTimes ? getPositionPercent(lunchTimes.start, lunchTimes.end) : null;
 
               return (
                 <div key={tech.id} className="flex hover:bg-slate-50/50 transition-colors">
@@ -278,7 +282,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                       <div
                         className="absolute top-2 bottom-2 bg-amber-50/90 border border-amber-200 rounded-md z-10 flex items-center justify-center text-amber-800 text-[10px] font-medium shadow-xs"
                         style={{ left: lunchPos.left, width: lunchPos.width }}
-                        title={`Descanso almuerzo (${tech.schedule.lunchStart} - ${tech.schedule.lunchEnd})`}
+                        title={`Comida (${lunchTimes?.start} - ${lunchTimes?.end})`}
                       >
                         <Coffee className="w-3 h-3 mr-1 text-amber-600" />
                         <span className="hidden md:inline">Almuerzo</span>

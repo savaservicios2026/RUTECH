@@ -73,7 +73,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
 
   const main: AppTab[] = isTechnician
     ? ['worker', 'map', 'workorders', 'tickets']
-    : ['map', 'services', 'tickets', 'deliveries'];
+    : ['map', 'worker', 'tickets', 'deliveries'];
   const rest = (Object.keys(TABS) as AppTab[]).filter((t) => !main.includes(t));
 
   const badge = (tab: AppTab) =>
@@ -158,7 +158,8 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-900 border-t border-slate-800 pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-5">
           {main.map((tab) => {
-            const { label, icon: Icon } = TABS[tab];
+            const { icon: Icon } = TABS[tab];
+            const label = tab === 'worker' && !isTechnician ? 'Modo técnico' : TABS[tab].label;
             const active = currentTab === tab && !open;
             const n = badge(tab);
             return (
@@ -168,7 +169,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                 className={`relative flex flex-col items-center gap-0.5 pt-2 pb-1.5 text-[11px] font-semibold ${active ? 'text-blue-400' : 'text-slate-400'}`}
               >
                 <Icon className="w-6 h-6" />
-                {label}
+                <span className="truncate max-w-full px-0.5">{label}</span>
                 {n > 0 && <span className="absolute top-1 left-1/2 ml-1.5 text-[10px] font-bold bg-rose-500 text-white rounded-full px-1.5 leading-4">{n}</span>}
                 {active && <span className="absolute top-0 inset-x-4 h-0.5 rounded-full bg-blue-400" />}
               </button>

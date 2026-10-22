@@ -55,3 +55,19 @@ export const LunchEditor: React.FC<LunchEditorProps> = ({ technician, date, plan
     </span>
   );
 };
+
+/** The lunch break shown in the route between the stops it falls between. */
+export const LunchStop: React.FC<{ lunch: { start: string; end: string }; className?: string }> = ({ lunch, className = '' }) => (
+  <div className={`flex items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-900 ${className}`}>
+    <span className="text-base leading-none">🍽</span>
+    <span className="font-bold">Comida</span>
+    <span className="font-mono font-semibold">{lunch.start} – {lunch.end}</span>
+  </div>
+);
+
+/** Index of the first stop that comes after the lunch break (stops.length if it is after all of them). */
+export const lunchSlot = (stops: { scheduledArrival?: string }[], lunch?: { start: string; end: string }) => {
+  if (!lunch) return -1;
+  const i = stops.findIndex((s) => (s.scheduledArrival || '') >= lunch.end);
+  return i === -1 ? stops.length : i;
+};

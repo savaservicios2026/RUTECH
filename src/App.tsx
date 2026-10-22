@@ -301,7 +301,14 @@ export default function App() {
       id: `srv-${Date.now()}`,
       code: /-V\d*$/.test(job.code) ? job.code : `${job.code}-V`,
       description: [`Vuelta: ${job.inSituReport?.returnReason || ''}`, job.description].filter(Boolean).join('\n'),
-      date: selectedDate > job.date ? selectedDate : job.date,
+      // Next working day at the earliest, with no fixed time: it goes into the best gap of the route
+      date: (() => {
+        const d = new Date();
+        do d.setDate(d.getDate() + 1); while (d.getDay() === 0 || d.getDay() === 6);
+        const next = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return selectedDate > next ? selectedDate : next;
+      })(),
+      timeSlot: { type: 'cualquiera', label: 'Sin hora fija', startHour: '08:00', endHour: '19:00' },
       status: job.assignedTechnicianId ? 'asignado' : 'pendiente',
       manualOrder: 99,
       inSituReport: undefined,
@@ -451,6 +458,17 @@ export default function App() {
   const dayServices = useMemo(
     () => updatedServices.filter(s => s.date === selectedDate),
     [updatedServices, selectedDate]
+  );
+
+  // Technicians see only their own route in Mapa and Modo técnico (Pablo, who also runs the office, sees everyone)
+  const ownOnlyTechId = access.role === 'tecnico' && access.technicianId !== 'tech-pablo' ? access.technicianId : undefined;
+  const routeTechs = useMemo(
+    () => (ownOnlyTechId ? technicians.filter((t) => t.id === ownOnlyTechId) : technicians),
+    [technicians, ownOnlyTechId]
+  );
+  const routeServices = useMemo(
+    () => (ownOnlyTechId ? dayServices.filter((s) => s.assignedTechnicianId === ownOnlyTechId) : dayServices),
+    [dayServices, ownOnlyTechId]
   );
 
   // Active technicians count
@@ -711,14 +729,27 @@ export default function App() {
   };
 
   // A stop at the warehouse (pick up material, load an order) before the technician's next job
-  const handleAddWarehouseStop = (techId: string, minutes: number, reason: string) => {
+  // range: the stop from one time to another (if it is already over, it is recorded as done with those real times)
+  const handleAddWarehouseStop = (techId: string, minutes: number, reason: string, range?: { from: string; to: string }) => {
     const dayJobs = services
       .filter((s) => s.assignedTechnicianId === techId && s.date === selectedDate)
       .sort((a, b) => a.manualOrder - b.manualOrder);
     let insertAt = 0;
-    dayJobs.forEach((j, i) => {
-      if (j.status === 'completado' || j.status === 'en_progreso') insertAt = i + 1;
-    });
+    if (range) {
+      // Among the planned stops, it goes where its time falls
+      const arrival = (id: string) => updatedServices.find((u) => u.id === id)?.scheduledArrival || '';
+      dayJobs.forEach((j, i) => {
+        if (arrival(j.id) && arrival(j.id) < range.from) insertAt = i + 1;
+      });
+    } else {
+      dayJobs.forEach((j, i) => {
+        if (j.status === 'completado' || j.status === 'en_progreso') insertAt = i + 1;
+      });
+    }
+    const now = new Date();
+    const nowHm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const alreadyOver = !!range && (selectedDate < todayIso || (selectedDate === todayIso && range.to <= nowHm));
     const stop: ServiceJob = {
       id: `srv-nave-${Date.now()}`,
       kind: 'nave',
@@ -729,18 +760,21 @@ export default function App() {
       description: '',
       location: { ...WAREHOUSE },
       date: selectedDate,
-      timeSlot: { type: 'cualquiera', label: 'Sin hora fija', startHour: '07:00', endHour: '21:00' },
+      timeSlot: range
+        ? { type: 'personalizada', label: `${range.from} - ${range.to}`, startHour: range.from, endHour: range.to }
+        : { type: 'cualquiera', label: 'Sin hora fija', startHour: '07:00', endHour: '21:00' },
       estimatedDuration: minutes,
       priority: 'media',
       requiredSkills: [],
-      status: 'asignado',
+      status: alreadyOver ? 'completado' : 'asignado',
       assignedTechnicianId: techId,
       manualOrder: insertAt,
+      ...(alreadyOver ? { inSituReport: { startedAt: range!.from, completedAt: range!.to, actualMinutes: minutes } } : {}),
     };
     dayJobs.splice(insertAt, 0, stop);
     const order = new Map(dayJobs.map((j, i) => [j.id, i]));
     setServices([...services.map((s) => (order.has(s.id) && s.manualOrder !== order.get(s.id) ? { ...s, manualOrder: order.get(s.id)! } : s)), stop]);
-    showToast(`🏭 Parada en la nave añadida (${minutes} min): ruta recalculada`);
+    showToast(`🏭 Parada en la nave añadida (${range ? `${range.from}–${range.to}` : `${minutes} min`}): ruta recalculada`);
   };
 
   const handleRemoveStop = (serviceId: string) => {
@@ -949,9 +983,9 @@ export default function App() {
     );
 
     if (report.outcome === 'volver' && newStatus === 'completado') {
-      notifyTechnician('all', `🔁 Hay que volver: ${targetJob?.code || ''}`, `${targetJob?.customerName || ''}: ${report.returnReason || ''}`, {
+      notifyTechnician('all', `🔁 Hay que volver: ${targetJob?.code || ''}`, `${targetJob?.customerName || ''}: ${report.returnReason || ''} · Reubícalo desde Partes`, {
         type: 'urgent_change',
-        priority: 'alta',
+        priority: 'urgente',
         serviceCode: targetJob?.code,
       });
     }
@@ -1025,8 +1059,8 @@ export default function App() {
             {/* Map Container */}
             <div className="lg:col-span-8 bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden flex flex-col">
               <MapView
-                technicians={technicians}
-                services={dayServices}
+                technicians={routeTechs}
+                services={routeServices}
                 summaries={summaries}
                 selectedTechnicianId={selectedTechnicianId}
                 setSelectedTechnicianId={setSelectedTechnicianId}
@@ -1037,8 +1071,8 @@ export default function App() {
             {/* Route Stops Step-by-Step Sidebar */}
             <div className="lg:col-span-4 flex flex-col">
               <RouteSidebar
-                technicians={technicians}
-                services={dayServices}
+                technicians={routeTechs}
+                services={routeServices}
                 summaries={summaries}
                 selectedTechnicianId={effectiveTechId}
                 onSelectTechnician={(id) => setSelectedTechnicianId(id)}
@@ -1184,8 +1218,8 @@ export default function App() {
         {/* TAB 6: WORKER / FIELD MOBILE PORTAL */}
         {currentTab === 'worker' && (
           <WorkerView
-            technicians={technicians}
-            services={dayServices}
+            technicians={routeTechs}
+            services={routeServices}
             selectedDate={selectedDate}
             onUpdateJobStatus={handleUpdateJobStatus}
             initialTechnicianId={access.role === 'tecnico' ? access.technicianId : undefined}
@@ -1211,6 +1245,7 @@ export default function App() {
             company={company}
             onlyTechnicianId={access.role === 'tecnico' ? access.technicianId : undefined}
             teamNamesFor={teamNamesFor}
+            onScheduleReturn={canEdit ? openReturnVisit : undefined}
             onOpen={(job) => {
               setServiceForInSitu(job);
               setIsInSituModalOpen(true);

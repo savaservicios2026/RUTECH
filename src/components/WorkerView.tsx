@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Technician, ServiceJob, JobStatus, Van, vanLabel, TechnicianRouteSummary } from '../types';
-import { LunchEditor } from './LunchEditor';
+import { LunchEditor, LunchStop, lunchSlot } from './LunchEditor';
 import { 
   Smartphone, 
   Navigation,
@@ -33,7 +33,7 @@ interface WorkerViewProps {
   onOpenInSituModal?: (service: ServiceJob) => void;
   initialTechnicianId?: string;
   onChangeStartTime: (technicianId: string, date: string, time: string | null) => void;
-  onAddWarehouseStop: (technicianId: string, minutes: number, reason: string) => void;
+  onAddWarehouseStop: (technicianId: string, minutes: number, reason: string, range?: { from: string; to: string }) => void;
   onRemoveStop: (serviceId: string) => void;
   onOpenWorkOrders: () => void;
   vans: Van[];
@@ -60,6 +60,14 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
 }) => {
   const [naveOpen, setNaveOpen] = useState(false);
   const [naveMinutes, setNaveMinutes] = useState(30);
+  const [naveMode, setNaveMode] = useState<'tiempo' | 'horas'>('tiempo');
+  const [naveFrom, setNaveFrom] = useState('08:00');
+  const [naveTo, setNaveTo] = useState('09:00');
+  const rangeMinutes = (() => {
+    const [fh, fm] = naveFrom.split(':').map(Number);
+    const [th, tm] = naveTo.split(':').map(Number);
+    return th * 60 + tm - (fh * 60 + fm);
+  })();
   const [naveReason, setNaveReason] = useState(NAVE_REASONS[0]);
   const [naveOther, setNaveOther] = useState('');
   const [activeTechId, setActiveTechId] = useState<string>(initialTechnicianId || technicians[0]?.id || '');
@@ -133,7 +141,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
+    <div className="w-full max-w-2xl mx-auto space-y-4">
       {/* Top Banner: Mode Explanation & Worker Selector */}
       <div className="bg-slate-900 text-white p-3 sm:p-4 rounded-2xl shadow-lg border border-slate-800">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
@@ -180,7 +188,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                 </span>
               </div>
               <span className="font-mono text-emerald-400 font-bold">
-                {completedCount} de {techJobs.length} completados ({progressPercent}%)
+                {completedCount} de {allTechJobs.length} completados ({progressPercent}%)
               </span>
             </div>
 
@@ -213,10 +221,34 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
             </button>
             {naveOpen && (
               <div className="px-3 pb-3 space-y-2.5">
-                <div>
+                <div className="grid grid-cols-2 gap-1 p-1 bg-white rounded-lg border border-indigo-200">
+                  {([['tiempo', 'Cuánto tiempo'], ['horas', 'De hora a hora']] as const).map(([m, label]) => (
+                    <button
+                      key={m}
+                      onClick={() => setNaveMode(m)}
+                      className={`py-1.5 rounded-md font-semibold cursor-pointer ${naveMode === m ? 'bg-indigo-600 text-white' : 'text-indigo-800'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {naveMode === 'horas' && (
+                  <div>
+                    <div className="font-semibold text-slate-700 mb-1">¿De qué hora a qué hora?</div>
+                    <div className="flex items-center gap-2">
+                      <input type="time" value={naveFrom} onChange={(e) => e.target.value && setNaveFrom(e.target.value)} className="flex-1 px-2 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-semibold" />
+                      <span className="text-slate-500">a</span>
+                      <input type="time" value={naveTo} onChange={(e) => e.target.value && setNaveTo(e.target.value)} className="flex-1 px-2 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-semibold" />
+                    </div>
+                    <div className={`mt-1 ${rangeMinutes > 0 ? 'text-indigo-800' : 'text-rose-600 font-semibold'}`}>
+                      {rangeMinutes > 0 ? `${Math.floor(rangeMinutes / 60) ? `${Math.floor(rangeMinutes / 60)} h ` : ''}${rangeMinutes % 60 ? `${rangeMinutes % 60} min` : ''}` : 'La hora final tiene que ser después de la de inicio'}
+                    </div>
+                  </div>
+                )}
+                <div className={naveMode === 'horas' ? 'hidden' : ''}>
                   <div className="font-semibold text-slate-700 mb-1">¿Cuánto tiempo vas a estar en la nave?</div>
                   <div className="flex flex-wrap gap-1.5">
-                    {[15, 30, 45, 60, 90, 120].map((m) => (
+                    {[15, 30, 45, 60, 90, 120, 180, 240].map((m) => (
                       <button
                         key={m}
                         onClick={() => setNaveMinutes(m)}
@@ -258,15 +290,22 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                   )}
                 </div>
                 <button
+                  disabled={naveMode === 'horas' && rangeMinutes <= 0}
                   onClick={() => {
-                    onAddWarehouseStop(currentTech.id, Math.max(5, naveMinutes || 30), naveReason === 'Otro' ? naveOther.trim() || 'Paso por nave' : naveReason);
+                    const reason = naveReason === 'Otro' ? naveOther.trim() || 'Paso por nave' : naveReason;
+                    if (naveMode === 'horas') onAddWarehouseStop(currentTech.id, rangeMinutes, reason, { from: naveFrom, to: naveTo });
+                    else onAddWarehouseStop(currentTech.id, Math.max(5, naveMinutes || 30), reason);
                     setNaveOpen(false);
                   }}
                   className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold cursor-pointer"
                 >
                   Añadir parada en la nave
                 </button>
-                <p className="text-[11px] text-indigo-800">Se mete antes del próximo servicio y la ruta se recalcula sola.</p>
+                <p className="text-[11px] text-indigo-800">
+                  {naveMode === 'horas'
+                    ? 'Se coloca en la ruta a esa hora. Si ya pasó, queda apuntada como hecha con esas horas.'
+                    : 'Se mete antes del próximo servicio y la ruta se recalcula sola.'}
+                </p>
               </div>
             )}
           </div>
@@ -274,17 +313,17 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
 
         {/* Departure Base Card */}
         {currentTech && (
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between text-xs">
-            <div className="flex items-center gap-3">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-3 min-w-0">
               <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center font-bold">
                 🏠
               </div>
-              <div>
+              <div className="min-w-0">
                 <span className="font-bold text-slate-800 block">Punto de salida</span>
                 <span className="text-slate-500 text-[11px] truncate block">{currentTech.baseLocation.address}</span>
               </div>
             </div>
-            <div className="text-right">
+            <div className="text-right shrink-0">
               <StartTimeEditor technician={currentTech} date={selectedDate} onChange={onChangeStartTime} />
               <button
                 onClick={() => openGpsNavigation(currentTech.baseLocation.address, currentTech.baseLocation.lat, currentTech.baseLocation.lng)}
@@ -327,7 +366,9 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
             </p>
           </div>
         ) : (
-          techJobs.map((job) => {
+          (() => {
+          const lunch = currentTech ? summaries.get(currentTech.id)?.lunch : undefined;
+          const items: React.ReactNode[] = techJobs.map((job) => {
             const index = allTechJobs.indexOf(job);
             if (job.kind === 'nave') {
               return (
@@ -582,7 +623,10 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                 </div>
               </div>
             );
-          })
+          });
+          if (lunch) items.splice(lunchSlot(techJobs, lunch), 0, <LunchStop key="lunch" lunch={lunch} />);
+          return items;
+          })()
         )}
       </div>
     </div>

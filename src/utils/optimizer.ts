@@ -196,6 +196,12 @@ export function calculateTechnicianRoute(
     currentTimeMinutes = departureMinutes;
   });
 
+  // Lunch after the last job of the day still shows in the route at its time
+  if (lunchPlan && !lunch && sortedJobs.length) {
+    const begin = Math.max(currentTimeMinutes, lunchStartMins);
+    lunch = { start: minutesToTimeString(begin), end: minutesToTimeString(begin + lunchPlan.minutes) };
+  }
+
   return {
     technician,
     stops,

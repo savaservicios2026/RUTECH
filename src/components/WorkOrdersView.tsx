@@ -11,6 +11,7 @@ interface WorkOrdersViewProps {
   onlyTechnicianId?: string; // a technician sees their own
   teamNamesFor: (job: ServiceJob) => string;
   onOpen: (job: ServiceJob) => void;
+  onScheduleReturn?: (job: ServiceJob) => void; // office: put the return visit back into Servicios
   showToast: (msg: string) => void;
 }
 
@@ -25,6 +26,7 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({
   onlyTechnicianId,
   teamNamesFor,
   onOpen,
+  onScheduleReturn,
   showToast,
 }) => {
   const [search, setSearch] = useState('');
@@ -117,6 +119,26 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({
                     {r.outcome === 'resuelto' ? 'Resuelto' : 'Hay que volver'}
                   </span>
                 </div>
+                {r.outcome === 'volver' && (() => {
+                  const ret = services.find((s) => s.id !== job.id && s.code === (/-V\d*$/.test(job.code) ? job.code : `${job.code}-V`) && s.date >= job.date);
+                  return (
+                    <div className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 space-y-2 text-amber-950">
+                      <div><span className="font-bold">🔁 Hay que volver:</span> {r.returnReason || 'sin motivo indicado'}</div>
+                      {ret ? (
+                        <div className="font-semibold text-emerald-800">
+                          ✓ Vuelta programada el <span className="capitalize">{formatDay(ret.date)}</span>
+                          {ret.timeSlot.type !== 'cualquiera' ? ` a las ${ret.timeSlot.startHour}` : ''}
+                        </div>
+                      ) : (
+                        onScheduleReturn && (
+                          <button onClick={() => onScheduleReturn(job)} className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold cursor-pointer">
+                            📅 Reubicar en Servicios
+                          </button>
+                        )
+                      )}
+                    </div>
+                  );
+                })()}
                 <div className="text-slate-500">
                   <span className="capitalize">{formatDay(job.date)}</span>
                   {r.startedAt && ` · ${r.startedAt}–${r.completedAt || ''}`} · {teamNamesFor(job)}

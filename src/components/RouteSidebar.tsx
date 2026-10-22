@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { formatDuration } from '../utils/geo';
 import { StartTimeEditor } from './StartTimeEditor';
-import { LunchEditor } from './LunchEditor';
+import { LunchEditor, LunchStop, lunchSlot } from './LunchEditor';
 
 interface RouteSidebarProps {
   technicians: Technician[];
@@ -172,13 +172,18 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
             </p>
           </div>
         ) : (
-          techJobs.map((job, index) => {
+          (() => {
+          const lunch = currentTech ? summaries.get(currentTech.id)?.lunch : undefined;
+          const lunchAt = lunchSlot(techJobs, lunch);
+          return <>{techJobs.map((job, index) => {
             const hasConflict = !!job.conflict;
             const isFirst = index === 0;
             const isLast = index === techJobs.length - 1;
 
             return (
-              <div key={job.id} className="relative pl-7 group">
+              <React.Fragment key={job.id}>
+              {index === lunchAt && lunch && <LunchStop lunch={lunch} className="ml-7 mb-3" />}
+              <div className="relative pl-7 group">
                 {/* Connector line */}
                 {!isLast && (
                   <div className="absolute left-2.5 top-6 bottom-[-14px] w-0.5 bg-slate-200 group-hover:bg-blue-300 transition-colors"></div>
@@ -296,8 +301,12 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                   </div>
                 </div>
               </div>
+              </React.Fragment>
             );
-          })
+          })}
+          {lunchAt === techJobs.length && lunch && <LunchStop lunch={lunch} className="ml-7" />}
+          </>;
+          })()
         )}
       </div>
 
