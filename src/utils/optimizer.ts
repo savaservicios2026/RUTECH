@@ -90,10 +90,6 @@ export function calculateTechnicianRoute(
   // Calculate each job stop
   sortedJobs.forEach((job, index) => {
     const started = realStart(job) > 0;
-    // Today, a job not started yet cannot be reached before now
-    if (isToday && !started && job.status !== 'completado' && currentTimeMinutes < nowMinutes) {
-      currentTimeMinutes = nowMinutes;
-    }
     const distKm = calculateDistanceKm(currentLat, currentLng, job.location.lat, job.location.lng);
     const travelMins = estimateTravelTimeMinutes(distKm);
     // They pressed "Voy en camino": they left at that time, so they arrive after the trip
@@ -103,12 +99,24 @@ export function calculateTechnicianRoute(
       if (started && realStart(job) >= lunchStartMins + lunchPlan.minutes) {
         // They already ate in the gap before this job
         lunch = { start: minutesToTimeString(lunchStartMins), end: minutesToTimeString(lunchStartMins + lunchPlan.minutes) };
-      } else if (!started && currentTimeMinutes + travelMins > lunchStartMins) {
-        // They would get there after the lunch time: they eat first
+      } else if (
+        !started &&
+        Math.max(
+          currentTimeMinutes + travelMins,
+          isToday && job.status !== 'completado' ? nowMinutes + travelMins : 0,
+          !followDeparture && job.timeSlot.type !== 'cualquiera' ? timeStringToMinutes(job.timeSlot.startHour) : 0
+        ) > lunchStartMins
+      ) {
+        // They would get there (or start, for an agreed time) after the lunch time: they eat first, in the gap
         const begin = Math.max(currentTimeMinutes, lunchStartMins);
         lunch = { start: minutesToTimeString(begin), end: minutesToTimeString(begin + lunchPlan.minutes) };
         currentTimeMinutes = begin + lunchPlan.minutes;
       }
+    }
+    // Today, a job not started yet cannot be reached before now (after placing lunch, so a lunch
+    // already taken keeps the time it was marked for)
+    if (isToday && !started && !onTheWay && job.status !== 'completado' && currentTimeMinutes < nowMinutes) {
+      currentTimeMinutes = nowMinutes;
     }
 
     totalDistanceKm += distKm;
