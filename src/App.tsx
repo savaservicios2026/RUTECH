@@ -233,6 +233,23 @@ export default function App() {
     updateDelivery(d.id, { status: 'entregada' });
   };
 
+  // The order is packed and ready to go out: tell whoever takes it, and the office
+  const markDeliveryReady = (d: Delivery, ready: boolean) => {
+    if (!canEdit) return showToast(READ_ONLY_MESSAGE);
+    if (!ready) return updateDelivery(d.id, { ready: null });
+    updateDelivery(d.id, { ready: { at: new Date().toISOString(), by: access.email || undefined } });
+    const job = d.serviceId ? services.find((x) => x.id === d.serviceId) : undefined;
+    const name = d.facility || d.customerName;
+    const when = job ? ` · sale el ${new Date(`${job.date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'numeric' })}` : '';
+    const text = `${name}: ${d.items}${when} · ${d.location.address}`;
+    const crew = job ? Array.from(new Set([job.assignedTechnicianId, ...(job.assignedTechnicianIds || [])].filter(Boolean) as string[])) : [];
+    crew.forEach((techId) =>
+      notifyTechnician(techId, '📦 Pedido listo para salir', text, { serviceCode: job?.code, serviceId: job?.id })
+    );
+    notifyTechnician('all', '📦 Pedido listo para salir', text, { serviceCode: job?.code, serviceId: job?.id });
+    showToast(crew.length ? 'Pedido listo · avisado al técnico y a la oficina' : 'Pedido listo · avisado a la oficina');
+  };
+
   // Pre-fills a work order from a ticket; it is saved as a new service from the service form
   const openServiceFromTicket = (ticket: Ticket) => {
     const point =
@@ -1110,6 +1127,7 @@ export default function App() {
             onCreateSeparate={openSeparateDelivery}
             onRemoveFromRoute={removeDeliveryFromRoute}
             onMarkDelivered={markDeliveryDone}
+            onMarkReady={markDeliveryReady}
             showToast={showToast}
           />
         )}

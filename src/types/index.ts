@@ -324,6 +324,7 @@ export interface Delivery {
   estimatedMinutes: number;
   status: DeliveryStatus;
   serviceId?: string | null;
+  ready?: { at: string; by?: string } | null; // order prepared and ready to go out
 }
 
 // Company details printed on work orders (Firestore settings/company)

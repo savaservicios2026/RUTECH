@@ -15,6 +15,7 @@ interface DeliveriesViewProps {
   onCreateSeparate: (delivery: Delivery) => void;
   onRemoveFromRoute: (delivery: Delivery) => void;
   onMarkDelivered: (delivery: Delivery) => void;
+  onMarkReady: (delivery: Delivery, ready: boolean) => void;
   showToast: (msg: string) => void;
 }
 
@@ -32,6 +33,9 @@ const whatsappUrl = (phone: string) => {
   if (digits.length === 9) digits = `34${digits}`;
   return `https://wa.me/${digits}`;
 };
+
+const readyText = (d: Delivery) =>
+  `Hola${d.customerName ? ` ${d.customerName}` : ''}, le escribimos de SAVA Servicios Deportivos. Su pedido (${d.items}) ya está preparado para salir. Le avisaremos cuando vayamos de camino. Un saludo.`;
 
 const mapsUrl = (d: Delivery) =>
   d.location.approximate
@@ -159,6 +163,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
   onCreateSeparate,
   onRemoveFromRoute,
   onMarkDelivered,
+  onMarkReady,
 }) => {
   const [filter, setFilter] = useState<DeliveryStatus>('pendiente');
   const [editing, setEditing] = useState<Delivery | null | 'new'>(null);
@@ -249,6 +254,36 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
                   {d.customerPhone && <div className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-slate-400" />{d.customerPhone}</div>}
                   {d.customerEmail && <div className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-slate-400" />{d.customerEmail}</div>}
                 </div>
+
+                {/* Order packed and ready to go out */}
+                {status !== 'entregada' &&
+                  (d.ready ? (
+                    <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-300 text-xs text-emerald-900 space-y-2">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <CheckCircle2 className="w-4 h-4" />Pedido listo para salir
+                        <span className="font-normal text-emerald-700">
+                          · {new Date(d.ready.at).toLocaleString('es-ES', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {d.ready.by ? ` · ${d.ready.by.split('@')[0]}` : ''}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {d.customerPhone && (
+                          <a href={`${whatsappUrl(d.customerPhone)}?text=${encodeURIComponent(readyText(d))}`} target="_blank" rel="noreferrer" className="px-2.5 py-1.5 bg-green-500 text-white rounded-lg font-semibold flex items-center gap-1">
+                            <MessageSquare className="w-3.5 h-3.5" />Avisar al cliente
+                          </a>
+                        )}
+                        {canEdit && (
+                          <button onClick={() => onMarkReady(d, false)} className="px-2.5 py-1.5 bg-white border border-emerald-300 text-emerald-800 rounded-lg font-semibold cursor-pointer">Deshacer</button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    canEdit && (
+                      <button onClick={() => onMarkReady(d, true)} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center justify-center gap-1.5 cursor-pointer">
+                        <CheckCircle2 className="w-4 h-4" />Pedido listo para salir
+                      </button>
+                    )
+                  ))}
 
                 {/* Contact the customer */}
                 <div className="grid grid-cols-4 gap-1.5 text-xs font-semibold">
