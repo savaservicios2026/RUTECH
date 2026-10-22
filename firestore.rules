@@ -95,7 +95,18 @@ service cloud.firestore {
     // Signed work orders sent to customers: readable by whoever has the (unguessable) link
     match /publicWorkOrders/{token} {
       allow get: if true;
+      // The office app looks for work orders the customer has signed from their link
+      allow list: if hasRole();
       allow create: if hasRole();
+      // A work order closed without signature: the customer signs it once from the link
+      allow update: if resource.data.get('pendingSignature', false) == true
+        && !('signedAt' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['customerSignature', 'customerSignatureName', 'signedAt'])
+        && request.resource.data.customerSignature is string
+        && request.resource.data.customerSignature.size() < 300000
+        && request.resource.data.signedAt is string
+        && request.resource.data.get('customerSignatureName', '') is string
+        && request.resource.data.get('customerSignatureName', '').size() < 120;
     }
 
   }

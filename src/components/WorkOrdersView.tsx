@@ -145,7 +145,13 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   {r.customerSignature && <img src={r.customerSignature} alt="Firma" className="h-10 border border-slate-200 rounded bg-white" />}
-                  <span className="text-slate-500">{r.customerSignatureName ? `Firmado por ${r.customerSignatureName}` : 'Firmado'}</span>
+                  {r.customerSignature ? (
+                    <span className="text-slate-500">{r.customerSignatureName ? `Firmado por ${r.customerSignatureName}` : 'Firmado'}</span>
+                  ) : r.signaturePending ? (
+                    <span className="px-2 py-1 rounded-lg bg-amber-100 text-amber-900 font-bold">⏳ Pendiente de la firma del cliente</span>
+                  ) : (
+                    <span className="text-slate-500">Sin firma</span>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   <button

@@ -60,7 +60,7 @@ ${row('Hora de llegada', r.startedAt)}${row('Hora de salida', r.completedAt)}
 ${row('Observaciones', r.technicalNotes)}${row('Material utilizado', (r.materialsUsed || []).join(', '))}
 </table>
 <h2>Conformidad del cliente</h2>
-<div class="sign">${r.customerSignature ? `<img src="${r.customerSignature}" alt="Firma">` : '<div style="height:90px"></div>'}
+<div class="sign">${r.customerSignature ? `<img src="${r.customerSignature}" alt="Firma">` : r.signaturePending ? '<div style="height:90px;display:flex;align-items:center;justify-content:center;color:#b45309;font-weight:700">Pendiente de la firma del cliente</div>' : '<div style="height:90px"></div>'}
 <div>${escapeHtml(r.customerSignatureName || '')}${r.signedDate ? ` · ${new Date(`${r.signedDate}T12:00:00`).toLocaleDateString('es-ES')}` : ''}</div></div>
 <footer>${escapeHtml(footerLine)}</footer>
 ${autoPrint ? '<script>window.onload=()=>setTimeout(()=>window.print(),300)</script>' : ''}
@@ -129,6 +129,12 @@ export interface SharedWorkOrder {
   technicianNames: string;
   company: CompanyInfo;
   createdAt: string;
+  // Closed without signature: the customer signs from the link and the app copies it into the work order
+  serviceId?: string;
+  pendingSignature?: boolean;
+  customerSignature?: string;
+  customerSignatureName?: string;
+  signedAt?: string;
 }
 
 const publicLink = (token: string) => `${location.origin}${location.pathname}#parte/${token}`;
@@ -143,13 +149,22 @@ export function sendWorkOrderToCustomer(job: ServiceJob, technicianNames: string
   const token = `${Date.now().toString(36)}${crypto.getRandomValues(new Uint32Array(3)).join('')}`.slice(0, 28);
   const db = getFirestoreDb();
   const { scheduledArrival, scheduledDeparture, travelTimeFromPrev, distanceKmFromPrev, conflict, teamParentId, ...clean } = job;
-  const shared: SharedWorkOrder = { job: clean as ServiceJob, technicianNames, company, createdAt: new Date().toISOString() };
+  const pending = !!job.inSituReport?.signaturePending && !job.inSituReport?.customerSignature;
+  const shared: SharedWorkOrder = {
+    job: clean as ServiceJob,
+    technicianNames,
+    company,
+    createdAt: new Date().toISOString(),
+    ...(pending ? { serviceId: (job.teamParentId || job.id).split('~')[0], pendingSignature: true } : {}),
+  };
   // Saved on the phone at once and uploaded as soon as there is coverage
   if (db) setDoc(doc(db, 'publicWorkOrders', token), JSON.parse(JSON.stringify(shared))).catch(() => {});
   const name = company.legalName?.replace(/\s+S\.?L\.?$/i, '') || 'SAVA';
   const lines = [
     `Hola ${job.customerName}, gracias por confiar en ${name}.`,
-    `Aquí tiene el parte de trabajo firmado (puede descargarlo en PDF): ${publicLink(token)}`,
+    pending
+      ? `Le enviamos el parte de trabajo de hoy. Como no pudo firmarlo en el momento, está *pendiente de su firma*: por favor, ábralo en este enlace y fírmelo con el dedo: ${publicLink(token)}`
+      : `Aquí tiene el parte de trabajo firmado (puede descargarlo en PDF): ${publicLink(token)}`,
     company.reviewUrl ? `Si ha quedado contento con nuestro servicio, nos ayudaría mucho que nos dejase una reseña: ${company.reviewUrl}` : '',
     'Un saludo.',
   ].filter(Boolean);

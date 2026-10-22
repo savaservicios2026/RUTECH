@@ -37,7 +37,9 @@ import { useCloudCollection } from './utils/cloudSync';
 import { expandTeams, collapseTeams, teamIds, baseIdOf } from './utils/teams';
 import { placeFlexibleJob } from './utils/placement';
 import { useAccess, READ_ONLY_MESSAGE, TECHNICIAN_EDITABLE_FIELDS } from './utils/access';
-import { ensureTechnicianRole, isFirebaseEnabled, signOutUser } from './utils/firebase';
+import { ensureTechnicianRole, getFirestoreDb, isFirebaseEnabled, signOutUser } from './utils/firebase';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import type { SharedWorkOrder } from './utils/workOrder';
 import { WorkerView } from './components/WorkerView';
 import { InSituModal } from './components/InSituModal';
 import { VansView, countVanWarnings } from './components/VansView';
@@ -404,6 +406,44 @@ export default function App() {
     const proposed = typeof next === 'function' ? next(prevExpanded) : next;
     setStoredServices(collapseTeams(prevExpanded, proposed, servicesRef.current));
   };
+
+  // Office: a customer who signs from their link (work order closed without signature) gets the
+  // signature copied into the work order, and the office is told
+  useEffect(() => {
+    const db = getFirestoreDb();
+    if (!canEdit || !db || (window as any).claude?.use) return;
+    return onSnapshot(
+      query(collection(db, 'publicWorkOrders'), where('pendingSignature', '==', true)),
+      (snap) => {
+        snap.docs.forEach((d) => {
+          const w = d.data() as SharedWorkOrder;
+          if (!w.signedAt || !w.customerSignature || !w.serviceId) return;
+          const job = servicesRef.current.find((x) => x.id === w.serviceId);
+          if (!job || !job.inSituReport || job.inSituReport.customerSignature) return;
+          setServicesState(
+            servicesRef.current.map((x) =>
+              x.id === job.id
+                ? {
+                    ...x,
+                    inSituReport: {
+                      ...x.inSituReport!,
+                      customerSignature: w.customerSignature,
+                      customerSignatureName: w.customerSignatureName || '',
+                      signedDate: w.signedAt!.slice(0, 10),
+                      signaturePending: false,
+                    },
+                  }
+                : x
+            )
+          );
+          notifyTechnician('all', `✍️ El cliente ha firmado el parte ${job.code}`, `${job.customerName}${w.customerSignatureName ? ` · firmado por ${w.customerSignatureName}` : ''}`, {
+            serviceCode: job.code,
+          });
+        });
+      },
+      () => {}
+    );
+  }, [canEdit]);
 
   // Office: each technician's email in their record becomes their login to see the app
   useEffect(() => {

@@ -69,6 +69,7 @@ export const InSituModal: React.FC<InSituModalProps> = ({
   const [delayMinutes, setDelayMinutes] = useState<number>(0);
   const [delayReason, setDelayReason] = useState<string>('');
   const [customerSignatureName, setCustomerSignatureName] = useState('');
+  const [customerAbsent, setCustomerAbsent] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const [error, setError] = useState('');
   const [sendToCustomer, setSendToCustomer] = useState(true);
@@ -90,6 +91,7 @@ export const InSituModal: React.FC<InSituModalProps> = ({
       setDelayMinutes(r?.delayReportedMinutes || 0);
       setDelayReason(r?.delayReason || '');
       setCustomerSignatureName(r?.customerSignatureName || '');
+      setCustomerAbsent(!!r?.signaturePending && !r?.customerSignature);
       setHasSignature(false);
       setError('');
       // Show the saved signature on the canvas
@@ -190,6 +192,7 @@ export const InSituModal: React.FC<InSituModalProps> = ({
       customerSignature: signatureDataUrl || undefined,
       customerSignatureName: customerSignatureName.trim(),
       signedDate: signatureDataUrl ? service.inSituReport?.signedDate || todayIso() : undefined,
+      signaturePending: !signatureDataUrl && customerAbsent ? true : undefined,
       updatedAt: nowTime(),
     };
   };
@@ -198,7 +201,7 @@ export const InSituModal: React.FC<InSituModalProps> = ({
   const handleFinish = () => {
     if (!outcome) return setError('Marca si queda resuelto o si hay que volver.');
     if (outcome === 'volver' && !returnReason) return setError('Indica por qué hay que volver.');
-    if (!hasSignature) return setError('Falta la firma del cliente.');
+    if (!hasSignature && !customerAbsent) return setError('Falta la firma del cliente. Si no está, marca "El cliente no está para firmar".');
     const report = buildReport(true);
     onSaveInSituReport(service.id, report, 'completado', delayMinutes - (service.inSituReport?.delayReportedMinutes || 0));
     // The customer gets the signed work order and the review request by WhatsApp
@@ -424,6 +427,12 @@ export const InSituModal: React.FC<InSituModalProps> = ({
                 </div>
               )}
             </div>
+            <label className={`flex items-start gap-2 p-2.5 rounded-lg border cursor-pointer ${customerAbsent ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+              <input type="checkbox" className="mt-0.5" checked={customerAbsent} onChange={(e) => setCustomerAbsent(e.target.checked)} />
+              <span>
+                <strong>El cliente no está para firmar.</strong> Se cierra el parte igualmente y, al enviárselo, se le pide que lo firme desde el enlace. Cuando firme, el parte se actualiza solo.
+              </span>
+            </label>
             <input
               type="text"
               value={customerSignatureName}
@@ -436,7 +445,11 @@ export const InSituModal: React.FC<InSituModalProps> = ({
           {service.customerPhone && (
             <label className="flex items-start gap-2 p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 cursor-pointer">
               <input type="checkbox" className="mt-0.5" checked={sendToCustomer} onChange={(e) => setSendToCustomer(e.target.checked)} />
-              <span>Al cerrar, enviar al cliente por WhatsApp el parte firmado en PDF y la petición de reseña</span>
+              <span>
+                {customerAbsent && !hasSignature
+                  ? 'Al cerrar, enviar al cliente por WhatsApp el parte para que lo firme'
+                  : 'Al cerrar, enviar al cliente por WhatsApp el parte firmado en PDF y la petición de reseña'}
+              </span>
             </label>
           )}
 

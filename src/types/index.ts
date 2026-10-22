@@ -197,6 +197,7 @@ export interface ServiceJob {
     returnReason?: string;
     technicianName?: string;
     signedDate?: string; // YYYY-MM-DD
+    signaturePending?: boolean; // closed without the customer there: they sign later from their link
     updatedAt?: string;
   };
 }
