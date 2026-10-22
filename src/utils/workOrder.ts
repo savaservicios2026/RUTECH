@@ -27,7 +27,7 @@ export async function loadWorkOrderPhotos(job: ServiceJob): Promise<string[]> {
 }
 
 // Smaller copies of the photos so they fit in the customer's link (one database document, under 1 MB)
-async function shrinkPhotos(photos: string[], budget = 750_000, maxSide = 900, quality = 0.6): Promise<string[]> {
+async function shrinkPhotos(photos: string[], budget = 750_000, maxSide = 720, quality = 0.55): Promise<string[]> {
   const out: string[] = [];
   let used = 0;
   for (const src of photos) {
