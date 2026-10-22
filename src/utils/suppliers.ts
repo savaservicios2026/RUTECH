@@ -11,7 +11,7 @@ export interface Supplier {
 export const SUPPLIERS: Supplier[] = [
   { id: 'ffittech', name: 'Ffittech / Azafit', brands: ['ffittech', 'fittech', 'azafit'], email: 'digital@ffittech.com' },
   { id: 'jht', name: 'Johnson / Matrix / Horizon', brands: ['johnson', 'matrix', 'horizon'], email: 'sat@jht.es' },
-  { id: 'fitnessdeluxe', name: 'Impulse / Xebex / DHZ / Fitness Deluxe', brands: ['impulse', 'xebex', 'dhz', 'fitness deluxe'], email: 'n.sanchez@fitnessdeluxe.es' },
+  { id: 'fitnessdeluxe', name: 'Impulse / Xebex / DHZ / Reebok / Fitness Deluxe', brands: ['impulse', 'xebex', 'dhz', 'reebok', 'fitness deluxe'], email: 'n.sanchez@fitnessdeluxe.es' },
   { id: 'onequipment', name: 'On Equipment', brands: ['on equipment', 'one equipment'], email: 'administracion@savaservicios.com' },
   { id: 'bodytone', name: 'Bodytone', brands: ['bodytone', 'body tone'], email: 'gymservice@bodytone.eu' },
 ];
