@@ -929,7 +929,14 @@ export default function App() {
 
   // 10. Update job status from Worker Mobile Mode (e.g. en camino, en faena, completado)
   const handleUpdateJobStatus = (serviceId: string, status: JobStatus) => {
-    setServices(prev => prev.map(job => (job.id === serviceId ? { ...job, status } : job)));
+    // "Voy en camino" keeps the time they set off, so the arrival on the map follows the real departure
+    const now = new Date();
+    const hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    setServices(prev => prev.map(job => {
+      if (job.id !== serviceId) return job;
+      if (status === 'en_camino') return { ...job, status, inSituReport: { ...(job.inSituReport || {}), onTheWayAt: hm } };
+      return { ...job, status };
+    }));
     const targetJob = services.find(s => s.id === serviceId);
     const statusLabels: Record<JobStatus, string> = {
       completado: 'marcado como completado con éxito',

@@ -96,7 +96,10 @@ export function calculateTechnicianRoute(
     }
     const distKm = calculateDistanceKm(currentLat, currentLng, job.location.lat, job.location.lng);
     const travelMins = estimateTravelTimeMinutes(distKm);
-    if (lunchPlan && !lunch) {
+    // They pressed "Voy en camino": they left at that time, so they arrive after the trip
+    const onTheWay = !started && job.status === 'en_camino' && job.inSituReport?.onTheWayAt ? timeStringToMinutes(job.inSituReport.onTheWayAt) : 0;
+    if (onTheWay) currentTimeMinutes = onTheWay;
+    if (lunchPlan && !lunch && !onTheWay) {
       if (started && realStart(job) >= lunchStartMins + lunchPlan.minutes) {
         // They already ate in the gap before this job
         lunch = { start: minutesToTimeString(lunchStartMins), end: minutesToTimeString(lunchStartMins + lunchPlan.minutes) };
@@ -121,7 +124,7 @@ export function calculateTechnicianRoute(
 
     // If technician arrives before time window starts, can wait or adjust if reasonable
     // A job with a start time agreed with the customer begins then, even if the technician gets there earlier
-    if (!followDeparture && job.timeSlot.type !== 'cualquiera' && slotStartMins > 0 && arrivalMinutes < slotStartMins) {
+    if (!onTheWay && !followDeparture && job.timeSlot.type !== 'cualquiera' && slotStartMins > 0 && arrivalMinutes < slotStartMins) {
       arrivalMinutes = slotStartMins;
     }
 

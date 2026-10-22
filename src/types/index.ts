@@ -182,6 +182,7 @@ export interface ServiceJob {
 
   // Live in situ reporting from the field
   inSituReport?: {
+    onTheWayAt?: string; // HH:MM when the technician pressed "Voy en camino"
     startedAt?: string;
     completedAt?: string;
     actualMinutes?: number;
