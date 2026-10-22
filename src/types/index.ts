@@ -282,13 +282,12 @@ export interface Ticket {
   // Supplier of the machine and the notice sent to them
   supplierId?: string | null; // chosen by the office, or detected from the brand
   supplierSend?: {
-    status: 'pendiente' | 'enviado' | 'error';
+    status: 'pendiente' | 'preparado' | 'enviado' | 'error';
     to: string;
     requestedAt: string;
     requestedBy?: string;
     sentAt?: string;
     error?: string;
-    link?: string; // public page with the breakdown and its photos
   };
   // Follow-up of everything done with this breakdown, oldest first
   timeline?: TicketEvent[];

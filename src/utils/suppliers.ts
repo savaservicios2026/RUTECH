@@ -31,26 +31,35 @@ export function detectSupplier(ticket: Pick<Ticket, 'machine' | 'problem' | 'des
 
 export const supplierById = (id?: string | null) => SUPPLIERS.find((s) => s.id === id) || null;
 
-/** The notice the supplier gets. The subject carries the breakdown number so replies can be matched. */
-export function supplierEmail(ticket: Ticket, supplier: Supplier, link?: string) {
-  const subject = `Aviso de avería ${ticket.number} · ${ticket.facility || ticket.customerName} · SAVA`;
+/**
+ * The notice the supplier gets. Only SAVA's details go in it (never the customer's): the supplier
+ * deals with us. The subject carries the breakdown number so replies can be matched.
+ */
+export function supplierEmail(ticket: Ticket, supplier: Supplier) {
+  const subject = `Aviso de avería ${ticket.number} · SAVA Servicios Deportivos`;
   const lines = [
     `Hola,`,
-    `Les enviamos un aviso de avería de un cliente nuestro para que nos indiquen cómo proceder (garantía, repuesto o asistencia).`,
+    ``,
+    `Les enviamos un aviso de avería para que nos indiquen cómo proceder (garantía, repuesto o asistencia).`,
     ``,
     `Nº de aviso: ${ticket.number}`,
-    `Cliente: ${ticket.customerName}${ticket.facility ? ` (${ticket.facility})` : ''}`,
-    `Dirección: ${ticket.location.address}`,
     ticket.machine ? `Máquina (marca y modelo): ${ticket.machine}` : '',
     `Avería: ${ticket.problem}`,
     ticket.description ? `Detalle: ${ticket.description}` : '',
-    link ? `Fotos y vídeos del cliente: ${link}` : '',
+    ticket.mediaCount > 0 ? `Adjuntamos fotos y vídeos de la avería.` : '',
+    ``,
+    `Datos para el envío y la facturación:`,
+    `SAVA SERVICIOS DEPORTIVOS SL · CIF B70370846`,
+    `Rúa do Seixo, nave H1H2, Polígono Industrial de Bértoa`,
+    `15100 Carballo (A Coruña)`,
+    `administracion@savaservicios.com · 604 015 066`,
     ``,
     `Por favor, mantengan "${ticket.number}" en el asunto al responder.`,
     ``,
     `Un saludo,`,
     `SAVA Servicios Deportivos · Servicio técnico`,
-    `administracion@savaservicios.com · 604 015 066`,
-  ].filter((l, i, all) => l !== '' || all[i - 1] !== '');
-  return { to: supplier.email, subject, body: lines.join('\n') };
+  ].filter((l) => l !== null && l !== undefined);
+  // Drop empty optional lines without leaving double gaps
+  const body = lines.filter((l, i, all) => !(l === '' && all[i - 1] === '')).join('\n');
+  return { to: supplier.email, subject, body };
 }
