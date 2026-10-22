@@ -60,7 +60,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     setIsRequesting(false);
 
     if (newPerm === 'granted') {
-      sendWebPushNotification('🔔 RUTECH Pro: Notificaciones Activadas', {
+      sendWebPushNotification('🔔 Sava Servicios: notificaciones activadas', {
         body: 'A partir de ahora recibirás alertas de nuevos servicios y cambios urgentes en tu ruta.',
         tag: 'rutatech-welcome',
       });

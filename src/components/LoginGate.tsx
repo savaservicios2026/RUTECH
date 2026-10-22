@@ -64,7 +64,7 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
           </div>
           {access === 'none' ? (
             <>
-              <p className="text-sm text-slate-200">Tu usuario ({user.email}) todavía no tiene permisos en RUTECH.</p>
+              <p className="text-sm text-slate-200">Tu usuario ({user.email}) todavía no tiene permisos en Sava Servicios.</p>
               <p className="text-xs text-slate-400">Pide a la oficina que ponga este email en tu ficha de técnico.</p>
             </>
           ) : (
@@ -100,7 +100,7 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
         </div>
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-xl font-bold text-white">RUTECH</h1>
+            <h1 className="text-xl font-bold text-white">Sava Servicios</h1>
             <p className="text-xs text-slate-400">Entra con tu usuario de trabajo</p>
           </div>
         </div>

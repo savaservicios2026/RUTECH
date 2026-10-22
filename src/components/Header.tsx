@@ -114,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="md:hidden pt-[env(safe-area-inset-top)]">
         <div className="flex items-center gap-2 px-3 py-2">
           <img src={logoSava} alt="SAVA" className="h-8 w-auto shrink-0" />
-          <span className="font-bold tracking-tight">RUTECH</span>
+          <span className="font-bold tracking-tight truncate">Sava Servicios</span>
           <div className="ml-auto flex items-center gap-1.5">
             {metrics.conflictsCount > 0 && (
               <button onClick={onOpenConflicts} className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold">
@@ -151,7 +151,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div>
                 <div className="flex items-center space-x-2">
                   <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
-                    RUTECH <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 font-medium">Pro</span>
+                    Sava Servicios
                   </h1>
                 </div>
                 <p className="text-xs text-slate-400">Planificador y optimizador de rutas técnicas</p>

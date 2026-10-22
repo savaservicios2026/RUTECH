@@ -1259,7 +1259,7 @@ export default function App() {
       <footer className="hidden md:block bg-white border-t border-slate-200 py-3 px-4 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-700">RUTECH</span>
+            <span className="font-semibold text-slate-700">Sava Servicios</span>
             <span>· Sistema inteligente de asignación por competencias y optimización de rutas</span>
           </div>
 

@@ -29,7 +29,7 @@ export const SplashCover: React.FC = () => {
         <img src={logoSava} alt="SAVA servicios deportivos" className="w-full" />
       </div>
       <div className="text-center">
-        <div className="text-2xl font-bold tracking-wide text-white">RUTECH</div>
+        <div className="text-2xl font-bold tracking-wide text-white">Sava Servicios</div>
         <div className="text-sm text-indigo-100">Planificador de rutas técnicas</div>
       </div>
     </div>

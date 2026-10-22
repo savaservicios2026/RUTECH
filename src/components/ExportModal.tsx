@@ -90,7 +90,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const handleSendEmail = () => {
     if (!currentTech) return;
-    const subject = encodeURIComponent(`Hoja de Ruta RUTECH - ${selectedDate} - ${currentTech.name}`);
+    const subject = encodeURIComponent(`Hoja de Ruta Sava Servicios - ${selectedDate} - ${currentTech.name}`);
     const body = encodeURIComponent(generateWhatsAppMessage().replace(/\*/g, ''));
     window.location.href = `mailto:${currentTech.email}?subject=${subject}&body=${body}`;
   };
@@ -312,7 +312,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <div className="flex items-start justify-between border-b border-slate-200 pb-3">
                 <div>
                   <div className="text-lg font-bold text-slate-900">HOJA DE RUTA DIARIA</div>
-                  <div className="text-slate-500 text-xs">RUTECH — Sistema de Asistencia Técnica</div>
+                  <div className="text-slate-500 text-xs">Sava Servicios — Sistema de Asistencia Técnica</div>
                 </div>
                 <div className="text-right">
                   <div className="font-bold text-slate-800">{selectedDate}</div>
