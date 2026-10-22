@@ -58,6 +58,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   onScheduleReturn,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   const [selectedDay, setSelectedDay] = useState<'day' | 'upcoming' | 'all'>('day');
   // Day shown in the list; starts on the app's selected day and can be picked from the calendar
   const [filterDate, setFilterDate] = useState(selectedDate);
@@ -449,8 +450,16 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             </select>
           </div>
 
+          <button
+            type="button"
+            onClick={() => setShowFilters(!showFilters)}
+            className="sm:hidden self-end py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 font-semibold"
+          >
+            {showFilters ? 'Menos filtros ▲' : 'Más filtros ▼'}
+          </button>
+
           {/* Status filter */}
-          <div>
+          <div className={showFilters ? '' : 'hidden sm:block'}>
             <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Estado:</label>
             <select
               value={selectedStatus}
@@ -464,7 +473,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           </div>
 
           {/* Priority filter */}
-          <div>
+          <div className={showFilters ? '' : 'hidden sm:block'}>
             <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Prioridad:</label>
             <select
               value={selectedPriority}
@@ -480,7 +489,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
           </div>
 
           {/* Required Skill filter */}
-          <div>
+          <div className={showFilters ? '' : 'hidden sm:block'}>
             <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Conocimiento:</label>
             <select
               value={selectedSkill}

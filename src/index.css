@@ -27,3 +27,21 @@
   border-radius: 50%;
   background: #94a3b8;
 }
+
+/* Phones: no zoom-in when typing (iOS zooms on fields under 16px), and forms open as bottom sheets */
+@media (max-width: 639px) {
+  input, select, textarea { font-size: 16px !important; min-width: 0; max-width: 100%; }
+  body { overflow-x: clip; }
+  .fixed.inset-0.z-50:not(.bg-black\/80) {
+    padding: 0 !important;
+    align-items: flex-end !important;
+  }
+  .fixed.inset-0.z-50:not(.bg-black\/80) > :first-child {
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: calc(100dvh - 12px) !important;
+    border-radius: 1rem 1rem 0 0 !important;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+html { -webkit-tap-highlight-color: transparent; }

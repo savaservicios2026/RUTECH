@@ -304,9 +304,9 @@ export const MapView: React.FC<MapViewProps> = ({
   }, [technicians, services, summaries, selectedTechnicianId, onSelectService]);
 
   return (
-    <div className="relative isolate w-full h-full min-h-[520px] bg-slate-100 flex flex-col">
+    <div className="relative isolate w-full h-full min-h-[58vh] md:min-h-[520px] bg-slate-100 flex flex-col">
       {/* Top Filter Bar over Map */}
-      <div className="absolute top-4 left-4 z-[400] bg-white/95 backdrop-blur-sm p-2 rounded-xl shadow-lg border border-slate-200 flex items-center gap-2 max-w-md overflow-x-auto text-xs">
+      <div className="absolute top-2 left-12 right-2 md:top-4 md:left-14 md:right-auto z-[400] bg-white/95 backdrop-blur-sm p-2 rounded-xl shadow-lg border border-slate-200 flex items-center gap-2 md:max-w-md overflow-x-auto text-xs">
         <span className="text-slate-500 font-medium pl-1 flex items-center gap-1">
           <Eye className="w-3.5 h-3.5 text-blue-600" />
           Ruta:

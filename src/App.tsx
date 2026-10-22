@@ -43,6 +43,7 @@ import { InSituModal } from './components/InSituModal';
 import { VansView, countVanWarnings } from './components/VansView';
 import { TicketsView } from './components/TicketsView';
 import { DeliveriesView } from './components/DeliveriesView';
+import { MobileNav } from './components/MobileNav';
 import { CompanyModal, DEFAULT_COMPANY } from './components/CompanyModal';
 import { DeliverySuggestion, deliveryStatus } from './utils/deliveries';
 import { zoneCenter } from './utils/tickets';
@@ -981,7 +982,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-800">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-18 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700 text-xs font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-4">
+        <div className="fixed top-16 left-3 right-3 md:left-auto md:top-18 md:right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700 text-xs font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-4">
           <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
           <span>{toastMessage}</span>
         </div>
@@ -1015,12 +1016,12 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6 flex flex-col">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:p-5 md:pb-6 lg:p-6 flex flex-col">
         {/* TAB 1: MAP & ROUTE PLANNER */}
         {currentTab === 'map' && (
           <div className="flex-1 flex flex-col gap-3">
-          <DayPicker date={selectedDate} onChange={setSelectedDate} />
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch min-h-[580px]">
+          <div className="hidden md:block"><DayPicker date={selectedDate} onChange={setSelectedDate} /></div>
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 md:gap-5 items-stretch md:min-h-[580px]">
             {/* Map Container */}
             <div className="lg:col-span-8 bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden flex flex-col">
               <MapView
@@ -1220,7 +1221,7 @@ export default function App() {
       </main>
 
       {/* App Sub-footer with Reset Helper */}
-      <footer className="bg-white border-t border-slate-200 py-3 px-4 text-xs text-slate-500">
+      <footer className="hidden md:block bg-white border-t border-slate-200 py-3 px-4 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-700">RUTECH</span>
@@ -1260,6 +1261,30 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      <MobileNav
+        currentTab={currentTab}
+        setCurrentTab={setCurrentTab}
+        isTechnician={access.role === 'tecnico'}
+        canEdit={canEdit}
+        newTicketsCount={tickets.filter((t) => t.status === 'nuevo').length}
+        pendingDeliveriesCount={deliveries.filter((d) => deliveryStatus(d, services) === 'pendiente').length}
+        vanWarningsCount={countVanWarnings(vans)}
+        unassignedCount={metrics.unassignedJobs}
+        email={access.email}
+        onOptimize={handleOptimizeAll}
+        onOpenNewService={() => {
+          setServiceToEdit(null);
+          setIsServiceModalOpen(true);
+        }}
+        onOpenNewTechnician={() => {
+          setTechnicianToEdit(null);
+          setIsTechnicianModalOpen(true);
+        }}
+        onOpenExport={() => setIsExportModalOpen(true)}
+        onOpenCompany={() => setIsCompanyModalOpen(true)}
+        onSignOut={() => signOutUser()}
+      />
 
       {/* Modals */}
       <CompanyModal

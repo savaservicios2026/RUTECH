@@ -18,12 +18,56 @@ import {
   Truck,
   AlertOctagon,
   Package,
-  FileSignature
+  FileSignature,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import logoSava from '../assets/logo-sava-dark.png?inline';
 import { OptimizationMetrics } from '../types';
 
 export type AppTab = 'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans' | 'tickets' | 'deliveries' | 'workorders';
+
+// Sections that show one day; on phones their day is chosen right under the top bar
+const DATED_TABS: AppTab[] = ['map', 'timeline', 'technicians', 'worker', 'analytics'];
+
+const isoShift = (date: string, days: number) => {
+  const d = new Date(`${date}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const MobileDayBar: React.FC<{ date: string; onChange: (d: string) => void }> = ({ date, onChange }) => {
+  const now = new Date();
+  const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const label = new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+  return (
+    <div className="flex items-center gap-1.5 px-3 pb-2">
+      <button onClick={() => onChange(isoShift(date, -1))} className="p-2 rounded-lg bg-slate-800 border border-slate-700" aria-label="Día anterior">
+        <ChevronLeft className="w-4 h-4" />
+      </button>
+      <label className="relative flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-sm font-semibold capitalize">
+        <Calendar className="w-4 h-4 text-blue-400" />
+        {label}
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => e.target.value && onChange(e.target.value)}
+          className="absolute inset-0 opacity-0 w-full"
+          aria-label="Elegir día"
+        />
+      </label>
+      <button onClick={() => onChange(isoShift(date, 1))} className="p-2 rounded-lg bg-slate-800 border border-slate-700" aria-label="Día siguiente">
+        <ChevronRight className="w-4 h-4" />
+      </button>
+      <button
+        onClick={() => onChange(todayLocal)}
+        className={`px-3 py-1.5 rounded-lg text-sm font-semibold border ${date === todayLocal ? 'bg-blue-600 border-blue-600' : 'bg-slate-800 border-slate-700'}`}
+      >
+        Hoy
+      </button>
+    </div>
+  );
+};
 
 interface HeaderProps {
   currentTab: AppTab;
@@ -66,8 +110,37 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   return (
     <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md">
+      {/* Phone top bar: brand, alerts and notices; sections live in the bottom bar */}
+      <div className="md:hidden pt-[env(safe-area-inset-top)]">
+        <div className="flex items-center gap-2 px-3 py-2">
+          <img src={logoSava} alt="SAVA" className="h-8 w-auto shrink-0" />
+          <span className="font-bold tracking-tight">RUTECH</span>
+          <div className="ml-auto flex items-center gap-1.5">
+            {metrics.conflictsCount > 0 && (
+              <button onClick={onOpenConflicts} className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold">
+                <AlertTriangle className="w-3.5 h-3.5" />{metrics.conflictsCount}
+              </button>
+            )}
+            {metrics.unassignedJobs > 0 && (
+              <button onClick={onOpenConflicts} className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-bold">
+                <Clock className="w-3.5 h-3.5" />{metrics.unassignedJobs} sin asignar
+              </button>
+            )}
+            <button onClick={onOpenNotifications} className="relative p-2 rounded-lg bg-slate-800 border border-slate-700" aria-label="Avisos">
+              <Bell className="w-5 h-5 text-slate-200" />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+        {DATED_TABS.includes(currentTab) && <MobileDayBar date={selectedDate} onChange={setSelectedDate} />}
+      </div>
+
       {/* Top Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+      <div className="hidden md:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           {/* Logo & Brand */}
           <div className="flex items-center justify-between">
@@ -214,7 +287,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Tabs Navigation */}
-      <div className="bg-slate-950/60 border-t border-slate-800 px-4 sm:px-6 lg:px-8">
+      <div className="hidden md:block bg-slate-950/60 border-t border-slate-800 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex gap-1 lg:gap-1.5 overflow-x-auto lg:overflow-visible lg:flex-wrap lg:justify-between py-1 scrollbar-none">
           <button
             onClick={() => setCurrentTab('map')}

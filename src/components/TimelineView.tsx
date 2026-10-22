@@ -76,8 +76,66 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Phones: each technician's day as a simple list of stops */}
+      <div className="md:hidden space-y-3">
+        {technicians.map((tech) => {
+          const summary = summaries.get(tech.id);
+          const isAvailable = tech.availability.isAvailableToday;
+          const techJobs = services
+            .filter((s) => s.assignedTechnicianId === tech.id)
+            .sort((a, b) => (a.scheduledArrival || '99').localeCompare(b.scheduledArrival || '99') || a.manualOrder - b.manualOrder);
+          return (
+            <div key={tech.id} className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+              <div className="flex items-center gap-2.5 p-3 border-b border-slate-100">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0" style={{ backgroundColor: tech.color }}>
+                  {tech.name.charAt(0)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-sm text-slate-800 truncate">{tech.name}</div>
+                  <div className="text-xs text-slate-500">
+                    {techJobs.length} servicios · {summary?.totalDistanceKm || 0} km
+                    {summary?.lunch && <> · 🍽️ {summary.lunch.start}</>}
+                  </div>
+                </div>
+                <button
+                  onClick={() => onToggleAvailability(tech.id)}
+                  className={`px-2.5 py-1.5 rounded-full font-semibold text-[11px] border ${
+                    isAvailable ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+                  }`}
+                >
+                  {isAvailable ? '✓ Disponible' : '✕ No disponible'}
+                </button>
+              </div>
+              {isAvailable && techJobs.length > 0 && (
+                <div className="divide-y divide-slate-100">
+                  {techJobs.map((job) => (
+                    <button key={job.id} onClick={() => onSelectJob(job)} className="w-full text-left flex gap-3 p-3 active:bg-slate-50">
+                      <div className="w-14 shrink-0 font-mono text-xs font-bold text-slate-700 leading-5">
+                        {job.scheduledArrival || '--:--'}
+                        <div className="font-normal text-slate-400">{job.scheduledDeparture}</div>
+                      </div>
+                      <div className="min-w-0 flex-1 border-l-4 pl-2.5 rounded-sm" style={{ borderColor: job.conflict ? '#EF4444' : tech.color }}>
+                        <div className="font-semibold text-sm text-slate-800 truncate">{job.customerName}</div>
+                        <div className="text-xs text-slate-500 truncate">{job.title}</div>
+                        <div className="text-[11px] text-slate-400 truncate">📍 {job.location.address.split(',').slice(0, 2).join(',')}</div>
+                        {job.conflict && (
+                          <div className="text-[11px] text-rose-600 font-semibold flex items-center gap-1 mt-0.5">
+                            <AlertTriangle className="w-3 h-3" />{job.conflict.message}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {isAvailable && techJobs.length === 0 && <div className="p-3 text-xs text-slate-400">Sin servicios este día.</div>}
+            </div>
+          );
+        })}
+      </div>
+
       {/* Timeline Card */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         {/* Timeline Header Info */}
         <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -111,7 +169,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         </div>
 
         {/* Scrollable Gantt Chart Container */}
-        <div className="overflow-x-auto min-w-[850px]">
+        <div className="overflow-x-auto"><div className="min-w-[850px]">
           {/* Time Ruler Bar */}
           <div className="flex border-b border-slate-200 bg-slate-100/70 text-[11px] font-mono text-slate-600 select-none">
             {/* Technician Info Column Width */}
@@ -280,7 +338,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
               );
             })}
           </div>
-        </div>
+        </div></div>
       </div>
 
       {/* Unassigned Jobs Alert Drawer */}

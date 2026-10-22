@@ -67,8 +67,8 @@ export const TechniciansView: React.FC<TechniciansViewProps> = ({
         </button>
       </div>
 
-      {/* Company Fleet Section (3 Vans) */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-850 to-slate-900 text-white p-4 sm:p-5 rounded-2xl shadow-md border border-slate-700/80">
+      {/* Company Fleet Section (3 Vans); on phones the real vans are in Furgonetas */}
+      <div className="hidden md:block bg-gradient-to-br from-slate-900 via-slate-850 to-slate-900 text-white p-4 sm:p-5 rounded-2xl shadow-md border border-slate-700/80">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xs">
