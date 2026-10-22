@@ -1,5 +1,5 @@
-import { doc, setDoc } from 'firebase/firestore';
-import { CompanyInfo, ServiceJob } from '../types';
+import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore';
+import { Attachment, CompanyInfo, ServiceJob } from '../types';
 import logoUrl from '../assets/logo-sava.png?inline';
 import { getFirestoreDb } from './firebase';
 
@@ -10,7 +10,49 @@ export const formatLongDate = (date: string) =>
   new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
 /** The work order as a complete HTML page (logo, company data, job, result and signature). */
-export function workOrderHtml(job: ServiceJob, technicianNames: string, company: CompanyInfo, autoPrint = false) {
+// Photos of the work order (section "parte"), as image data URLs, oldest first
+export async function loadWorkOrderPhotos(job: ServiceJob): Promise<string[]> {
+  const db = getFirestoreDb();
+  if (!db) return [];
+  try {
+    const snap = await getDocs(query(collection(db, 'attachments'), where('serviceId', '==', job.id.split('~')[0])));
+    return snap.docs
+      .map((d) => d.data() as Attachment)
+      .filter((a) => a.section === 'parte' && (a.type || '').startsWith('image/') && a.dataUrl)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .map((a) => a.dataUrl);
+  } catch {
+    return [];
+  }
+}
+
+// Smaller copies of the photos so they fit in the customer's link (one database document, under 1 MB)
+async function shrinkPhotos(photos: string[], budget = 750_000, maxSide = 900, quality = 0.6): Promise<string[]> {
+  const out: string[] = [];
+  let used = 0;
+  for (const src of photos) {
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = reject;
+        i.src = src;
+      });
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+      const small = c.toDataURL('image/jpeg', quality);
+      if (used + small.length > budget) break;
+      used += small.length;
+      out.push(small);
+    } catch {}
+  }
+  return out;
+}
+
+export function workOrderHtml(job: ServiceJob, technicianNames: string, company: CompanyInfo, autoPrint = false, photos: string[] = []) {
   const r = job.inSituReport || {};
   const row = (label: string, value?: string) =>
     value ? `<tr><th>${label}</th><td>${escapeHtml(value).replace(/\n/g, '<br>')}</td></tr>` : '';
@@ -44,6 +86,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}th{text-align:left;
 th,td{padding:7px 8px;border-bottom:1px solid #e2e8f0}h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:#1f4f94;margin:20px 0 6px}
 .ok{color:#047857;font-weight:700}.back{color:#b45309;font-weight:700}
 .sign{border:1px solid #cbd5e1;border-radius:8px;padding:8px;display:inline-block;min-width:260px}.sign img{max-width:320px;height:90px;object-fit:contain;display:block}
+.photos{display:grid;grid-template-columns:1fr 1fr;gap:8px}.photos img{width:100%;max-height:330px;object-fit:contain;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;break-inside:avoid}
 @media print{body{margin:12mm}}
 </style></head><body>
 <header><img src="${logoUrl}" alt="SAVA"><div class="company">${companyBlock}</div></header>
@@ -62,6 +105,7 @@ ${row('Observaciones', r.technicalNotes)}${row('Material utilizado', (r.material
 <h2>Conformidad del cliente</h2>
 <div class="sign">${r.customerSignature ? `<img src="${r.customerSignature}" alt="Firma">` : r.signaturePending ? '<div style="height:90px;display:flex;align-items:center;justify-content:center;color:#b45309;font-weight:700">Pendiente de la firma del cliente</div>' : '<div style="height:90px"></div>'}
 <div>${escapeHtml(r.customerSignatureName || '')}${r.signedDate ? ` · ${new Date(`${r.signedDate}T12:00:00`).toLocaleDateString('es-ES')}` : ''}</div></div>
+${photos.length ? `<h2>Fotos</h2><div class="photos">${photos.map((p) => `<img src="${p}" alt="Foto">`).join('')}</div>` : ''}
 <footer>${escapeHtml(footerLine)}</footer>
 ${autoPrint ? '<script>window.onload=()=>setTimeout(()=>window.print(),300)</script>' : ''}
 </body></html>`;
@@ -72,16 +116,22 @@ ${autoPrint ? '<script>window.onload=()=>setTimeout(()=>window.print(),300)</scr
  * Opens the signed work order as a printable page (print or "Guardar como PDF")
  */
 export function printWorkOrder(job: ServiceJob, technicianNames: string, company: CompanyInfo) {
-  const html = workOrderHtml(job, technicianNames, company, true);
+  // The window opens at once (browsers block it after a wait); the page is written when the photos are in
   const win = window.open('', '_blank');
   if (!win) return false;
-  win.document.write(html);
-  win.document.close();
+  win.document.write('<p style="font-family:system-ui;padding:24px">Preparando el parte…</p>');
+  loadWorkOrderPhotos(job).then((photos) => {
+    win.document.open();
+    win.document.write(workOrderHtml(job, technicianNames, company, true, photos));
+    win.document.close();
+  });
   return true;
 }
 
 /** Builds the work order as a real PDF file (A4) from the same page. */
-export async function workOrderPdf(job: ServiceJob, technicianNames: string, company: CompanyInfo): Promise<Blob> {
+export async function workOrderPdf(job: ServiceJob, technicianNames: string, company: CompanyInfo, photos?: string[]): Promise<Blob> {
+  // Lighter copies keep the PDF small enough to send by WhatsApp or email
+  const pics = await shrinkPhotos(photos ?? (await loadWorkOrderPhotos(job)), Infinity, 1200, 0.7);
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
   const frame = document.createElement('iframe');
   frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;';
@@ -103,6 +153,35 @@ export async function workOrderPdf(job: ServiceJob, technicianNames: string, com
       if (y > 0) pdf.addPage();
       pdf.addImage(img, 'JPEG', 0, -y, pageW, imgH);
     }
+    // Photos on their own pages, two per row and three rows per page, never cut in half
+    const margin = 12;
+    const gap = 6;
+    const cellW = (pageW - margin * 2 - gap) / 2;
+    const top = margin + 10;
+    const cellH = (pageH - top - margin - gap * 2) / 3;
+    for (let i = 0; i < pics.length; i++) {
+      const slot = i % 6;
+      if (slot === 0) {
+        pdf.addPage();
+        pdf.setFontSize(13);
+        pdf.setTextColor(31, 79, 148);
+        pdf.text(`Fotos del parte ${job.code}`, margin, margin + 4);
+      }
+      const dims = await new Promise<{ w: number; h: number }>((resolve) => {
+        const im = new Image();
+        im.onload = () => resolve({ w: im.width, h: im.height });
+        im.onerror = () => resolve({ w: 4, h: 3 });
+        im.src = pics[i];
+      });
+      const k = Math.min(cellW / dims.w, cellH / dims.h);
+      const w = dims.w * k;
+      const h = dims.h * k;
+      const x = margin + (slot % 2) * (cellW + gap) + (cellW - w) / 2;
+      const y = top + Math.floor(slot / 2) * (cellH + gap) + (cellH - h) / 2;
+      try {
+        pdf.addImage(pics[i], 'JPEG', x, y, w, h);
+      } catch {}
+    }
     return pdf.output('blob');
   } finally {
     frame.remove();
@@ -111,8 +190,8 @@ export async function workOrderPdf(job: ServiceJob, technicianNames: string, com
 
 export const workOrderFileName = (job: ServiceJob) => `Parte-${job.code}-${job.date}.pdf`.replace(/[^\w.-]+/g, '_');
 
-export async function downloadWorkOrderPdf(job: ServiceJob, technicianNames: string, company: CompanyInfo) {
-  const blob = await workOrderPdf(job, technicianNames, company);
+export async function downloadWorkOrderPdf(job: ServiceJob, technicianNames: string, company: CompanyInfo, photos?: string[]) {
+  const blob = await workOrderPdf(job, technicianNames, company, photos);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -135,6 +214,7 @@ export interface SharedWorkOrder {
   customerSignature?: string;
   customerSignatureName?: string;
   signedAt?: string;
+  photos?: string[]; // smaller copies of the work order photos
 }
 
 const publicLink = (token: string) => `${location.origin}${location.pathname}#parte/${token}`;
@@ -157,8 +237,12 @@ export function sendWorkOrderToCustomer(job: ServiceJob, technicianNames: string
     createdAt: new Date().toISOString(),
     ...(pending ? { serviceId: (job.teamParentId || job.id).split('~')[0], pendingSignature: true } : {}),
   };
-  // Saved on the phone at once and uploaded as soon as there is coverage
-  if (db) setDoc(doc(db, 'publicWorkOrders', token), JSON.parse(JSON.stringify(shared))).catch(() => {});
+  // Saved with its photos and uploaded as soon as there is coverage; WhatsApp opens right away
+  if (db)
+    loadWorkOrderPhotos(job)
+      .then(shrinkPhotos)
+      .then((photos) => setDoc(doc(db, 'publicWorkOrders', token), JSON.parse(JSON.stringify({ ...shared, photos }))))
+      .catch(() => setDoc(doc(db, 'publicWorkOrders', token), JSON.parse(JSON.stringify(shared))).catch(() => {}));
   const name = company.legalName?.replace(/\s+S\.?L\.?$/i, '') || 'SAVA';
   const lines = [
     `Hola ${job.customerName}, gracias por confiar en ${name}.`,
