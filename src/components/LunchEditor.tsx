@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Technician } from '../types';
 
 interface LunchEditorProps {
@@ -8,11 +8,18 @@ interface LunchEditorProps {
   onChange: (technicianId: string, date: string, lunch: { start: string; minutes: number } | null) => void;
 }
 
-const DURATIONS = [30, 45, 60, 90];
+const DURATIONS = [15, 30, 45, 60, 90, 120];
 
-/** The lunch break of one day: from what time and how long. The route makes room for it. */
+const toMin = (t: string) => {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+};
+const toTime = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+
+/** The lunch break of one day: from what time and how long, or from one time to another. The route makes room for it. */
 export const LunchEditor: React.FC<LunchEditorProps> = ({ technician, date, planned, onChange }) => {
   const plan = technician.lunchByDate?.[date];
+  const [mode, setMode] = useState<'tiempo' | 'horas'>('tiempo');
   if (!plan) {
     return (
       <button
@@ -24,34 +31,65 @@ export const LunchEditor: React.FC<LunchEditorProps> = ({ technician, date, plan
       </button>
     );
   }
+  const end = toTime(toMin(plan.start) + plan.minutes);
+  const field = 'font-mono font-semibold rounded-md px-1.5 py-0.5 border bg-orange-50 border-orange-300 text-orange-900';
   return (
-    <span className="inline-flex flex-wrap items-center gap-1.5 text-[11px]">
-      <span className="font-semibold text-slate-700">🍽 Comida desde</span>
-      <input
-        type="time"
-        value={plan.start}
-        onChange={(e) => e.target.value && onChange(technician.id, date, { ...plan, start: e.target.value })}
-        className="font-mono font-semibold rounded-md px-1.5 py-0.5 border bg-orange-50 border-orange-300 text-orange-900"
-      />
-      <select
-        value={plan.minutes}
-        onChange={(e) => onChange(technician.id, date, { ...plan, minutes: Number(e.target.value) })}
-        className="rounded-md px-1 py-0.5 border border-orange-300 bg-orange-50 text-orange-900 font-semibold"
-      >
-        {DURATIONS.map((m) => (
-          <option key={m} value={m}>
-            {m} min
-          </option>
+    <span className="inline-flex flex-col gap-1.5 text-[11px]">
+      <span className="inline-flex rounded-md border border-orange-300 overflow-hidden w-fit">
+        {([['tiempo', 'Tiempo'], ['horas', 'De hora a hora']] as const).map(([m, label]) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={`px-2 py-0.5 font-semibold cursor-pointer ${mode === m ? 'bg-orange-500 text-white' : 'bg-white text-orange-800'}`}
+          >
+            {label}
+          </button>
         ))}
-      </select>
-      {planned && <span className="text-slate-500">(en ruta {planned.start}–{planned.end})</span>}
-      <button
-        type="button"
-        onClick={() => onChange(technician.id, date, null)}
-        className="text-[10px] font-semibold text-slate-500 underline cursor-pointer"
-      >
-        quitar
-      </button>
+      </span>
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        <span className="font-semibold text-slate-700">🍽 Comida {mode === 'horas' ? 'de' : 'desde'}</span>
+        <input
+          type="time"
+          value={plan.start}
+          onChange={(e) => e.target.value && onChange(technician.id, date, { ...plan, start: e.target.value })}
+          className={field}
+        />
+        {mode === 'horas' ? (
+          <>
+            <span className="text-slate-600">a</span>
+            <input
+              type="time"
+              value={end}
+              onChange={(e) => {
+                const minutes = e.target.value ? toMin(e.target.value) - toMin(plan.start) : 0;
+                if (minutes > 0) onChange(technician.id, date, { ...plan, minutes });
+              }}
+              className={field}
+            />
+          </>
+        ) : (
+          <select
+            value={plan.minutes}
+            onChange={(e) => onChange(technician.id, date, { ...plan, minutes: Number(e.target.value) })}
+            className="rounded-md px-1 py-0.5 border border-orange-300 bg-orange-50 text-orange-900 font-semibold"
+          >
+            {[...new Set([...DURATIONS, plan.minutes])].sort((a, b) => a - b).map((m) => (
+              <option key={m} value={m}>
+                {m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`}
+              </option>
+            ))}
+          </select>
+        )}
+        <button
+          type="button"
+          onClick={() => onChange(technician.id, date, null)}
+          className="text-[10px] font-semibold text-slate-500 underline cursor-pointer"
+        >
+          quitar
+        </button>
+      </span>
+      {planned && <span className="text-slate-500">En la ruta: {planned.start}–{planned.end}</span>}
     </span>
   );
 };
