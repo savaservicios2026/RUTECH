@@ -61,6 +61,11 @@ service cloud.firestore {
         && !exists(/databases/$(database)/documents/tickets/$(request.resource.data.ticketId));
     }
 
+    // Technicians can also mark a delivery as packed and ready to go out
+    match /deliveries/{id} {
+      allow update: if isTech() && current()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ready', '_v']);
+    }
     // Any other section (vans and future ones): everyone with a role reads, office edits
     match /{section}/{id} {
       allow read: if hasRole() && section != 'roles';

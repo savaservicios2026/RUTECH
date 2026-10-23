@@ -16,6 +16,7 @@ interface DeliveriesViewProps {
   onRemoveFromRoute: (delivery: Delivery) => void;
   onMarkDelivered: (delivery: Delivery) => void;
   onMarkReady: (delivery: Delivery, ready: boolean) => void;
+  canMarkReady: boolean; // office and technicians
   showToast: (msg: string) => void;
 }
 
@@ -164,6 +165,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
   onRemoveFromRoute,
   onMarkDelivered,
   onMarkReady,
+  canMarkReady,
 }) => {
   const [filter, setFilter] = useState<DeliveryStatus>('pendiente');
   const [editing, setEditing] = useState<Delivery | null | 'new'>(null);
@@ -272,13 +274,13 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
                             <MessageSquare className="w-3.5 h-3.5" />Avisar al cliente
                           </a>
                         )}
-                        {canEdit && (
+                        {canMarkReady && (
                           <button onClick={() => onMarkReady(d, false)} className="px-2.5 py-1.5 bg-white border border-emerald-300 text-emerald-800 rounded-lg font-semibold cursor-pointer">Deshacer</button>
                         )}
                       </div>
                     </div>
                   ) : (
-                    canEdit && (
+                    canMarkReady && (
                       <button onClick={() => onMarkReady(d, true)} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center justify-center gap-1.5 cursor-pointer">
                         <CheckCircle2 className="w-4 h-4" />Pedido listo para salir
                       </button>

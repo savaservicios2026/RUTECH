@@ -252,7 +252,7 @@ export default function App() {
 
   // The order is packed and ready to go out: tell whoever takes it, and the office
   const markDeliveryReady = (d: Delivery, ready: boolean) => {
-    if (!canEdit) return showToast(READ_ONLY_MESSAGE);
+    if (access.role !== 'oficina' && access.role !== 'tecnico') return showToast(READ_ONLY_MESSAGE);
     if (!ready) return updateDelivery(d.id, { ready: null });
     updateDelivery(d.id, { ready: { at: new Date().toISOString(), by: access.email || undefined } });
     const job = d.serviceId ? services.find((x) => x.id === d.serviceId) : undefined;
@@ -1224,6 +1224,7 @@ export default function App() {
             onRemoveFromRoute={removeDeliveryFromRoute}
             onMarkDelivered={markDeliveryDone}
             onMarkReady={markDeliveryReady}
+            canMarkReady={access.role === 'oficina' || access.role === 'tecnico'}
             showToast={showToast}
           />
         )}
