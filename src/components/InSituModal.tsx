@@ -94,6 +94,8 @@ export const InSituModal: React.FC<InSituModalProps> = ({
       setCustomerAbsent(!!r?.signaturePending && !r?.customerSignature);
       setHasSignature(false);
       setError('');
+      // Editing a closed work order does not send it to the customer again unless asked
+      setSendToCustomer(service.status !== 'completado');
       // Show the saved signature on the canvas
       setTimeout(() => {
         const canvas = canvasRef.current;
@@ -485,16 +487,18 @@ export const InSituModal: React.FC<InSituModalProps> = ({
               </button>
             </div>
           ) : (<>
-          <button type="button" onClick={handleSaveDraft} className="ml-auto px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold cursor-pointer">
-            Guardar sin cerrar
-          </button>
+          {service.status !== 'completado' && (
+            <button type="button" onClick={handleSaveDraft} className="ml-auto px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold cursor-pointer">
+              Guardar sin cerrar
+            </button>
+          )}
           <button
             type="button"
             onClick={handleFinish}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-1.5 cursor-pointer"
+            className={`${service.status === 'completado' ? 'ml-auto ' : ''}px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-1.5 cursor-pointer`}
           >
             <CheckCircle2 className="w-4 h-4" />
-            <span>Cerrar parte</span>
+            <span>{service.status === 'completado' ? 'Guardar cambios' : 'Cerrar parte'}</span>
           </button>
           </>)}
         </div>

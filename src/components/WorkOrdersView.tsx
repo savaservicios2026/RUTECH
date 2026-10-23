@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FileSignature, Search, Download, Printer, Send, Loader2 } from 'lucide-react';
+import { FileSignature, Search, Download, Printer, Send, Loader2, Pencil } from 'lucide-react';
 import { CompanyInfo, ServiceJob, Technician } from '../types';
 import { teamIds } from '../utils/teams';
 import { downloadWorkOrderPdf, printWorkOrder, sendWorkOrderToCustomer } from '../utils/workOrder';
@@ -154,6 +154,12 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({
                   )}
                 </div>
                 <div className="flex flex-wrap gap-1.5 pt-1">
+                  <button
+                    onClick={() => onOpen(job)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 text-white rounded-lg font-semibold cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5" /> Editar
+                  </button>
                   <button
                     onClick={() => download(job)}
                     className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white rounded-lg font-semibold cursor-pointer"

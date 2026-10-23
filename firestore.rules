@@ -46,6 +46,12 @@ service cloud.firestore {
     }
     match /tickets/{id} {
       allow create: if validTicket(request.resource.data) && request.resource.data.id == id;
+      // Technicians correct a notice's details (the office edits everything through the general rule below)
+      allow update: if isTech() && current()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['customerName', 'facility', 'customerPhone',
+             'customerEmail', 'machine', 'problem', 'description', 'urgency', 'location', 'timeline', '_v'])
+        && shortText(request.resource.data.customerName, 100) && shortText(request.resource.data.problem, 150)
+        && request.resource.data.urgency in ['baja', 'media', 'alta', 'urgente'];
     }
     match /ticketMedia/{id} {
       allow create: if request.resource.data.keys().hasOnly(['ticketId', 'type', 'name', 'dataUrl'])

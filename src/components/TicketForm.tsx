@@ -14,19 +14,22 @@ interface TicketFormProps {
   source: 'cliente' | 'oficina';
   onCreated?: (ticket: Ticket) => void;
   onCancel?: () => void;
+  // Editing an existing notice: fields come filled in and saving returns the changes
+  ticket?: Ticket;
+  onSave?: (changes: Partial<Ticket>) => void;
 }
 
 /** Breakdown report form: the public page for customers and the office's "Nuevo aviso" use it. */
-export const TicketForm: React.FC<TicketFormProps> = ({ source, onCreated, onCancel }) => {
-  const [customerName, setCustomerName] = useState('');
-  const [facility, setFacility] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [machine, setMachine] = useState('');
-  const [problem, setProblem] = useState('');
-  const [description, setDescription] = useState('');
-  const [urgency, setUrgency] = useState<PriorityType>('media');
-  const [address, setAddress] = useState('');
+export const TicketForm: React.FC<TicketFormProps> = ({ source, onCreated, onCancel, ticket, onSave }) => {
+  const [customerName, setCustomerName] = useState(ticket?.customerName || '');
+  const [facility, setFacility] = useState(ticket?.facility || '');
+  const [customerPhone, setCustomerPhone] = useState(ticket?.customerPhone || '');
+  const [customerEmail, setCustomerEmail] = useState(ticket?.customerEmail || '');
+  const [machine, setMachine] = useState(ticket?.machine || '');
+  const [problem, setProblem] = useState(ticket?.problem || '');
+  const [description, setDescription] = useState(ticket?.description || '');
+  const [urgency, setUrgency] = useState<PriorityType>(ticket?.urgency || 'media');
+  const [address, setAddress] = useState(ticket?.location.address || '');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [media, setMedia] = useState<{ type: 'image' | 'video'; name: string; dataUrl: string }[]>([]);
@@ -84,6 +87,35 @@ export const TicketForm: React.FC<TicketFormProps> = ({ source, onCreated, onCan
     e.preventDefault();
     setSending(true);
     setError(null);
+    if (ticket && onSave) {
+      try {
+        const moved = !!coords || address.trim() !== ticket.location.address;
+        const point = coords || (moved && address.trim() ? await geocodeAddress(address.trim()) : null);
+        onSave({
+          customerName: customerName.trim(),
+          facility: facility.trim(),
+          customerPhone: customerPhone.trim(),
+          customerEmail: customerEmail.trim(),
+          machine: machine.trim(),
+          problem: problem.trim(),
+          description: description.trim(),
+          urgency,
+          ...(moved && {
+            location: {
+              address: address.trim() || (coords ? 'Ubicación GPS' : ticket.location.address),
+              lat: point?.lat ?? null,
+              lng: point?.lng ?? null,
+              ...(point && { zone: zoneFor(point.lat, point.lng) }),
+            },
+          }),
+        });
+      } catch {
+        setError('No se pudieron guardar los cambios.');
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
     try {
       const point = coords || (address.trim() ? await geocodeAddress(address.trim()) : null);
       const ticket = await createTicket(
@@ -192,7 +224,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ source, onCreated, onCan
         </button>
       </div>
 
-      <div>
+      {!ticket && (<div>
         <div className="text-xs font-semibold text-slate-600 mb-1">Fotos o vídeos (máx. {MAX_MEDIA_FILES})</div>
         <div className="flex flex-wrap gap-2">
           {media.map((m, i) => (
@@ -211,7 +243,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ source, onCreated, onCan
             </label>
           )}
         </div>
-      </div>
+      </div>)}
 
       {notice && <p className="text-xs text-amber-700 flex items-start gap-1.5"><AlertTriangle className="w-4 h-4 shrink-0" />{notice}</p>}
       {error && <p className="text-sm text-rose-600">{error}</p>}
@@ -222,7 +254,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ source, onCreated, onCan
         )}
         <button type="submit" disabled={sending || mediaBusy} className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#1f4f94] hover:bg-[#0d2650] disabled:opacity-60 text-white text-sm font-semibold">
           {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          {sending ? 'Enviando…' : 'Enviar aviso'}
+          {sending ? (ticket ? 'Guardando…' : 'Enviando…') : ticket ? 'Guardar cambios' : 'Enviar aviso'}
         </button>
       </div>
     </form>

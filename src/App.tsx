@@ -174,6 +174,20 @@ export default function App() {
     setTicketsState((prev) => prev.map((t) => (t.id === ticketId ? { ...t, ...change(t) } : t)));
   };
 
+  // Corrections to a notice's details: the office and the technicians can make them
+  const editTicket = (ticketId: string, changes: Partial<Ticket>) => {
+    if (access.role !== 'oficina' && access.role !== 'tecnico') return showToast(READ_ONLY_MESSAGE);
+    const who = (access.role === 'tecnico' && technicians.find((x) => x.id === access.technicianId)?.name) || access.email || '';
+    setTicketsState((prev) =>
+      prev.map((t) =>
+        t.id === ticketId
+          ? { ...t, ...changes, timeline: [...(t.timeline || []), { at: new Date().toISOString(), by: who, kind: 'nota' as const, text: 'Datos del aviso editados' }] }
+          : t
+      )
+    );
+    showToast('Aviso guardado');
+  };
+
   // Company details for printed work orders
   const [settings, setSettingsState] = useState<CompanyInfo[]>([]);
   useCloudCollection('settings', settings, setSettingsState);
@@ -1020,7 +1034,7 @@ export default function App() {
     // Notify coordinator and dispatcher about in situ update
     notifyTechnician(
       'all',
-      `📝 Parte de trabajo ${targetJob?.code || ''}: ${newStatus === 'completado' ? 'cerrado' : 'actualizado'}`,
+      `📝 Parte de trabajo ${targetJob?.code || ''}: ${newStatus === 'completado' && live?.status !== 'completado' ? 'cerrado' : 'actualizado'}`,
       `${targetJob?.customerName || ''}${extraDurationMinutes ? ` · se alarga +${extraDurationMinutes} min` : ''}${report.customerSignatureName ? ` · firmado por ${report.customerSignatureName}` : ''}`,
       {
         type: extraDurationMinutes ? 'urgent_change' : 'new_assignment',
@@ -1029,7 +1043,7 @@ export default function App() {
       }
     );
 
-    if (report.outcome === 'volver' && newStatus === 'completado') {
+    if (report.outcome === 'volver' && newStatus === 'completado' && !(live?.status === 'completado' && live.inSituReport?.outcome === 'volver')) {
       notifyTechnician('all', `🔁 Hay que volver: ${targetJob?.code || ''}`, `${targetJob?.customerName || ''}: ${report.returnReason || ''} · Reubícalo desde Partes`, {
         type: 'urgent_change',
         priority: 'urgente',
@@ -1223,6 +1237,7 @@ export default function App() {
             onCreateService={openServiceFromTicket}
             onSetStatus={(id, status) => setTicketStatus(id, status)}
             onUpdateTicket={updateTicket}
+            onEditTicket={editTicket}
             userEmail={access.email || ''}
             onOpenService={(serviceId) => {
               const job = services.find((s) => s.id === serviceId);

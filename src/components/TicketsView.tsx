@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertOctagon, Plus, Link2, MapPin, Phone, Wrench, Image as ImageIcon, Route, CheckCircle2, XCircle, RotateCcw, Loader2 } from 'lucide-react';
+import { AlertOctagon, Plus, Link2, MapPin, Phone, Wrench, Image as ImageIcon, Route, CheckCircle2, XCircle, RotateCcw, Loader2, Pencil } from 'lucide-react';
 import { ServiceJob, Technician, Ticket, TicketMedia, TicketStatus, PriorityType } from '../types';
 import { calculateDistanceKm } from '../utils/geo';
 import { loadTicketMedia } from '../utils/tickets';
@@ -17,6 +17,8 @@ interface TicketsViewProps {
   showToast: (msg: string) => void;
   onUpdateTicket: (ticketId: string, change: (t: Ticket) => Partial<Ticket>) => void;
   userEmail: string;
+  // Office and technicians can correct a notice's details
+  onEditTicket?: (ticketId: string, changes: Partial<Ticket>) => void;
 }
 
 const URGENCY_RANK: Record<PriorityType, number> = { urgente: 0, alta: 1, media: 2, baja: 3 };
@@ -80,9 +82,11 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
   showToast,
   onUpdateTicket,
   userEmail,
+  onEditTicket,
 }) => {
   const [filter, setFilter] = useState<TicketStatus>('nuevo');
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Ticket | null>(null);
   const today = new Date().toISOString().split('T')[0];
 
   const counts = useMemo(() => {
@@ -182,6 +186,11 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
                   <div className="mt-0.5 font-semibold text-slate-800">{t.problem}</div>
                   {t.machine && <div className="text-xs text-slate-500 flex items-center gap-1"><Wrench className="w-3.5 h-3.5" />{t.machine}</div>}
                 </div>
+                {onEditTicket && (
+                  <button onClick={() => setEditing(t)} className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-semibold">
+                    <Pencil className="w-3.5 h-3.5" />Editar
+                  </button>
+                )}
               </div>
 
               {t.description && <p className="text-sm text-slate-600 whitespace-pre-line">{t.description}</p>}
@@ -263,6 +272,24 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
           <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-bold text-slate-800 mb-3">Nuevo aviso de avería</h3>
             <TicketForm source="oficina" onCancel={() => setCreating(false)} />
+          </div>
+        </div>
+      )}
+
+      {editing && onEditTicket && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4" onClick={() => setEditing(null)}>
+          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-slate-800 mb-3">Editar aviso {editing.number}</h3>
+            <TicketForm
+              key={editing.id}
+              source={editing.source}
+              ticket={editing}
+              onCancel={() => setEditing(null)}
+              onSave={(changes) => {
+                onEditTicket(editing.id, changes);
+                setEditing(null);
+              }}
+            />
           </div>
         </div>
       )}
