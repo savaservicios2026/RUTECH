@@ -149,6 +149,13 @@ export function calculateTechnicianRoute(
       departureMinutes = actualEnd;
     }
 
+    // Lunch falls in the middle of this job: it is taken at the time the technician marked and the
+    // job finishes that much later (a real finish time already includes the break)
+    if (lunchPlan && !lunch && !onTheWay && arrivalMinutes < lunchStartMins && departureMinutes > lunchStartMins) {
+      lunch = { start: minutesToTimeString(lunchStartMins), end: minutesToTimeString(lunchStartMins + lunchPlan.minutes) };
+      if (!(actualEnd > 0 && actualEnd >= arrivalMinutes)) departureMinutes += lunchPlan.minutes;
+    }
+
     // Detect conflicts
     let conflict: ServiceJob['conflict'] = undefined;
     const missingSkills = getMissingSkills(technician, job.requiredSkills);
