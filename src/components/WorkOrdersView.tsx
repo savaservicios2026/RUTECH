@@ -15,6 +15,11 @@ interface WorkOrdersViewProps {
   showToast: (msg: string) => void;
 }
 
+const formatDayLong = (date: string) => {
+  const text = new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
 const formatDay = (date: string) =>
   new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -31,15 +36,18 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({
 }) => {
   const [search, setSearch] = useState('');
   const [techFilter, setTechFilter] = useState(onlyTechnicianId || 'all');
-  const [outcomeFilter, setOutcomeFilter] = useState<'all' | 'resuelto' | 'volver'>('all');
+  const [outcomeFilter, setOutcomeFilter] = useState<'resuelto' | 'volver'>(() =>
+    services.some((s) => s.status === 'completado' && s.inSituReport?.outcome === 'volver' && (!onlyTechnicianId || teamIds(s).includes(onlyTechnicianId)))
+      ? 'volver'
+      : 'resuelto'
+  );
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const orders = useMemo(() => {
+  const matching = useMemo(() => {
     const q = search.trim().toLowerCase();
     return services
       .filter((s) => s.kind !== 'nave' && s.status === 'completado' && s.inSituReport?.outcome)
       .filter((s) => techFilter === 'all' || teamIds(s).includes(techFilter))
-      .filter((s) => outcomeFilter === 'all' || s.inSituReport?.outcome === outcomeFilter)
       .filter(
         (s) =>
           !q ||
@@ -48,7 +56,18 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({
             .some((t) => t!.toLowerCase().includes(q))
       )
       .sort((a, b) => b.date.localeCompare(a.date) || (b.inSituReport?.completedAt || '').localeCompare(a.inSituReport?.completedAt || ''));
-  }, [services, search, techFilter, outcomeFilter]);
+  }, [services, search, techFilter]);
+  const counts = {
+    resuelto: matching.filter((s) => s.inSituReport?.outcome === 'resuelto').length,
+    volver: matching.filter((s) => s.inSituReport?.outcome === 'volver').length,
+  };
+  const orders = matching.filter((s) => s.inSituReport?.outcome === outcomeFilter);
+  // One block per day, newest day first
+  const byDay = useMemo(() => {
+    const groups = new Map<string, ServiceJob[]>();
+    orders.forEach((job) => groups.set(job.date, [...(groups.get(job.date) || []), job]));
+    return Array.from(groups.entries());
+  }, [orders]);
 
   const download = async (job: ServiceJob) => {
     setBusyId(job.id);
@@ -67,9 +86,17 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({
         <div className="flex items-center gap-2">
           <FileSignature className="w-5 h-5 text-blue-600" />
           <h2 className="font-bold text-slate-800">Partes de trabajo</h2>
-          <span className="text-xs text-slate-500">{orders.length} firmados</span>
+          <span className="text-xs text-slate-500">{orders.length} {outcomeFilter === 'volver' ? 'por volver' : 'resueltos'}</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+        {/* Resolved work orders apart from the ones where they have to go back */}
+        <div className="grid grid-cols-2 gap-2 text-sm font-bold">
+          {([['volver', '🔁 Hay que volver', 'bg-amber-500 text-white', 'bg-amber-50 text-amber-900 border border-amber-200'], ['resuelto', '✓ Resueltos', 'bg-emerald-600 text-white', 'bg-emerald-50 text-emerald-900 border border-emerald-200']] as const).map(([key, label, on, off]) => (
+            <button key={key} onClick={() => setOutcomeFilter(key)} className={`py-2.5 rounded-xl cursor-pointer ${outcomeFilter === key ? on : off}`}>
+              {label} ({counts[key]})
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
           <div className="relative sm:col-span-2">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -87,21 +114,23 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({
               ))}
             </select>
           )}
-          <select value={outcomeFilter} onChange={(e) => setOutcomeFilter(e.target.value as any)} className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2">
-            <option value="all">Todos</option>
-            <option value="resuelto">Resueltos</option>
-            <option value="volver">Hay que volver</option>
-          </select>
         </div>
       </div>
 
       {orders.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300 text-sm text-slate-500">
-          Todavía no hay partes cerrados. Cuando el técnico cierra un parte con la firma del cliente, aparece aquí.
+          {outcomeFilter === 'volver' ? 'No hay partes pendientes de volver.' : 'Todavía no hay partes resueltos. Cuando el técnico cierra un parte, aparece aquí.'}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {orders.map((job) => {
+        <div className="space-y-5">
+          {byDay.map(([day, jobs]) => (
+            <section key={day}>
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-800">
+                <span>{formatDayLong(day)}</span>
+                <span className="text-xs font-semibold text-slate-400">· {jobs.length} {jobs.length === 1 ? 'parte' : 'partes'}</span>
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {jobs.map((job) => {
             const r = job.inSituReport!;
             return (
               <div key={job.id} className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-xs text-xs space-y-2">
@@ -183,7 +212,10 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({
                 </div>
               </div>
             );
-          })}
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       )}
     </div>
