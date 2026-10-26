@@ -131,6 +131,24 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
     );
   };
 
+  // "Voy en camino" also opens the WhatsApp to the customer in the same tap. The arrival is
+  // worked out at once from the previous stop (waiting for the GPS would stop the phone opening WhatsApp)
+  const startOnTheWay = (job: ServiceJob) => {
+    onUpdateJobStatus(job.id, 'en_camino');
+    const phone = (job.customerPhone || '').replace(/[^0-9]/g, '');
+    if (phone.length < 9) return;
+    const intl = phone.length === 9 ? `34${phone}` : phone;
+    const idx = allTechJobs.findIndex((s) => s.id === job.id);
+    const prev = idx > 0 ? allTechJobs[idx - 1].location : currentTech.baseLocation;
+    const minutes = job.travelTimeFromPrev ?? estimateTravelTimeMinutes(calculateDistanceKm(prev.lat, prev.lng, job.location.lat, job.location.lng));
+    const now = new Date();
+    const eta = minutesToTimeString(now.getHours() * 60 + now.getMinutes() + minutes);
+    const text = encodeURIComponent(
+      `Hola ${job.customerName}, le informamos de que el técnico de SAVA va de camino. Hora estimada de llegada: ${eta} (unos ${minutes} min).`
+    );
+    window.open(`https://wa.me/${intl}?text=${text}`, '_blank');
+  };
+
   const getStatusBadge = (status: JobStatus) => {
     switch (status) {
       case 'completado':
@@ -608,7 +626,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                   <div className="flex items-center gap-1.5">
                     {job.status === 'pendiente' || job.status === 'asignado' ? (
                       <button
-                        onClick={() => onUpdateJobStatus(job.id, 'en_camino')}
+                        onClick={() => startOnTheWay(job)}
                         className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                       >
                         <Play className="w-3 h-3 fill-white" />
