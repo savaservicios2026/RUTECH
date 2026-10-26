@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { formatDuration, calculateDistanceKm, estimateTravelTimeMinutes, minutesToTimeString, roadTravel } from '../utils/geo';
 import { StartTimeEditor } from './StartTimeEditor';
+import { navigationDestination } from '../utils/tickets';
 
 interface WorkerViewProps {
   technicians: Technician[];
@@ -92,8 +93,8 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
 
   // Open Google Maps navigation. The written address goes first: Google finds the exact door,
   // while the app's map point can be only the centre of the town
-  const openGpsNavigation = (address: string, lat?: number, lng?: number) => {
-    const destination = address.trim() ? encodeURIComponent(address.trim()) : lat && lng ? `${lat},${lng}` : '';
+  const openGpsNavigation = (location: { address: string; lat?: number; lng?: number; approximate?: boolean }) => {
+    const destination = encodeURIComponent(navigationDestination(location));
     window.open(`https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${destination}`, '_blank');
   };
 
@@ -319,7 +320,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
             <div className="text-right shrink-0">
               <StartTimeEditor technician={currentTech} date={selectedDate} onChange={onChangeStartTime} />
               <button
-                onClick={() => openGpsNavigation(currentTech.baseLocation.address, currentTech.baseLocation.lat, currentTech.baseLocation.lng)}
+                onClick={() => openGpsNavigation(currentTech.baseLocation)}
                 className="text-[11px] text-blue-600 block hover:underline cursor-pointer"
               >
                 Ver mapa
@@ -546,7 +547,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                 <div className="p-3 bg-slate-50/80 border-t border-slate-100 grid grid-cols-2 gap-2">
                   {/* GPS Button */}
                   <button
-                    onClick={() => openGpsNavigation(job.location.address, job.location.lat, job.location.lng)}
+                    onClick={() => openGpsNavigation(job.location)}
                     className="py-2 px-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
                     title="Abrir indicaciones en Google Maps"
                   >

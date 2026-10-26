@@ -93,7 +93,7 @@ const DeliveryForm: React.FC<{
       const found = await geocodeAddress(form.address.trim());
       const zone = found ? zoneFor(found.lat, found.lng) : 'A Coruña y Ferrol';
       const p = found || zoneCenter(zone);
-      location = { address: form.address.trim(), lat: p.lat, lng: p.lng, zone, approximate: !found };
+      location = { address: form.address.trim(), lat: p.lat, lng: p.lng, zone, approximate: !found || found.approximate };
     }
     onSave({
       id: initial?.id || `ent-${Date.now()}`,

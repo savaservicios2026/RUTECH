@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Technician, ServiceJob, TechnicianRouteSummary } from '../types';
+import { navigationDestination } from '../utils/tickets';
 import { 
   X, 
   Printer, 
@@ -64,7 +65,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       msg += `🛠️ ${job.title} (${job.estimatedDuration} min)\n`;
       if (job.customerPhone) msg += `📞 Contacto: ${job.customerPhone}\n`;
       if (job.description) msg += `ℹ️ ${job.description}\n`;
-      msg += `🗺️ GPS: https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.location.address)}\n`;
+      msg += `🗺️ GPS: https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(navigationDestination(job.location))}\n`;
     });
 
     if (summary) {

@@ -50,14 +50,24 @@ async function geocodeOnce(q: string): Promise<{ lat: number; lng: number } | nu
 }
 
 /** Finds an address on the map; if the full text isn't found, tries it without the first parts (e.g. the gym's name). */
-export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number; approximate: boolean } | null> {
   const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
   const tries = [address, ...parts.slice(1).map((_, i) => parts.slice(i + 1).join(', '))].slice(0, 4);
-  for (const q of tries) {
+  for (const [i, q] of tries.entries()) {
     const found = await geocodeOnce(q);
-    if (found) return found;
+    // Found only without the first parts (street, number): it is the town, not the exact place
+    if (found) return { ...found, approximate: i > 0 };
   }
   return null;
+}
+
+/** Where the GPS takes the technician: the point on the map when it is the exact place, otherwise the written address. */
+export function navigationDestination(location: { address: string; lat?: number | null; lng?: number | null; approximate?: boolean }): string {
+  const { lat, lng } = location;
+  const exact =
+    lat != null && lng != null && !location.approximate &&
+    !ZONE_CENTERS.some(([, zl, zg]) => Math.abs(zl - lat) < 1e-4 && Math.abs(zg - lng) < 1e-4);
+  return exact ? `${lat},${lng}` : location.address.trim();
 }
 
 export function readAsDataUrl(file: Blob): Promise<string> {

@@ -62,6 +62,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   const [locationNote, setLocationNote] = useState<string | null>(null);
   const [showPin, setShowPin] = useState(false);
   const [pinMoved, setPinMoved] = useState(false);
+  const [approximate, setApproximate] = useState(false);
   const [searching, setSearching] = useState(false);
   // Id of the job being edited, or of the new one (photos can be attached before saving)
   const [jobId, setJobId] = useState('');
@@ -113,6 +114,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
     setLocationNote(null);
     setShowPin(false);
     setPinMoved(false);
+    setApproximate(!!serviceToEdit?.location.approximate);
   }, [serviceToEdit, isOpen]);
 
   // Puts the pin where the written address is, so it can then be fine-tuned by hand
@@ -126,7 +128,8 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
       setLat(found.lat);
       setLng(found.lng);
       setPinMoved(true);
-      setLocationNote(null);
+      setApproximate(found.approximate);
+      setLocationNote(found.approximate ? 'Solo encuentro la localidad: mueve el pin hasta el sitio exacto.' : null);
     } else {
       setLocationNote('No encuentro esa dirección. Mueve el pin hasta el sitio exacto.');
     }
@@ -167,12 +170,16 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
 
     // The exact address decides where the customer is on the map
     let point = { lat, lng };
+    let isApproximate = approximate;
     const cleanAddress = address.trim();
     if (!pinMoved && (!serviceToEdit || cleanAddress !== serviceToEdit.location.address || !serviceToEdit.location.lat)) {
       setSaving(true);
       const found = await geocodeAddress(cleanAddress);
       setSaving(false);
-      if (found) point = found;
+      if (found) {
+        point = found;
+        isApproximate = found.approximate;
+      }
       else if (!serviceToEdit) {
         setLocationNote('No encuentro esa dirección en el mapa. Escríbela con calle, número y localidad (o solo la localidad) y vuelve a guardar.');
         return;
@@ -196,6 +203,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
         zone: serviceToEdit?.location.zone || '',
         lat: point.lat,
         lng: point.lng,
+        ...(isApproximate && { approximate: true }),
       },
       date,
       timeSlot: flexible
@@ -336,6 +344,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
                     setLat(la);
                     setLng(ln);
                     setPinMoved(true);
+                    setApproximate(false);
                   }}
                 />
                 <div className="flex items-center justify-between text-[11px] text-slate-500">

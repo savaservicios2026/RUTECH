@@ -41,6 +41,8 @@ export interface LocationPoint {
   lat: number;
   lng: number;
   zone: string; // e.g. "Norte", "Sur", "Centro", "Este", "Oeste"
+  // Only the town (or a zone) was found for the address: the point is not the customer's door
+  approximate?: boolean;
 }
 
 export interface WorkSchedule {
