@@ -93,7 +93,11 @@ export function calculateTechnicianRoute(
     const distKm = calculateDistanceKm(currentLat, currentLng, job.location.lat, job.location.lng);
     const travelMins = estimateTravelTimeMinutes(distKm);
     // They pressed "Voy en camino": they left at that time, so they arrive after the trip
-    const onTheWay = !started && job.status === 'en_camino' && job.inSituReport?.onTheWayAt ? timeStringToMinutes(job.inSituReport.onTheWayAt) : 0;
+    // For the first visit, a departure time set for the day is when they left, so it wins
+    const onTheWay =
+      !started && job.status === 'en_camino' && job.inSituReport?.onTheWayAt && !(followDeparture && index === 0)
+        ? timeStringToMinutes(job.inSituReport.onTheWayAt)
+        : 0;
     if (onTheWay) currentTimeMinutes = onTheWay;
     if (lunchPlan && !lunch && !onTheWay) {
       if (started && realStart(job) >= lunchStartMins + lunchPlan.minutes) {
@@ -115,7 +119,8 @@ export function calculateTechnicianRoute(
     }
     // Today, a job not started yet cannot be reached before now (after placing lunch, so a lunch
     // already taken keeps the time it was marked for)
-    if (isToday && !started && !onTheWay && job.status !== 'completado' && currentTimeMinutes < nowMinutes) {
+    // (not for the first visit after a departure time set for the day: they are already driving there)
+    if (isToday && !started && !onTheWay && !(followDeparture && index === 0) && job.status !== 'completado' && currentTimeMinutes < nowMinutes) {
       currentTimeMinutes = nowMinutes;
     }
 
