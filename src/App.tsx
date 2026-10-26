@@ -685,28 +685,27 @@ export default function App() {
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
     if (targetIndex < 0 || targetIndex >= techJobs.length) return;
 
-    // Swap manualOrder
-    const currentOrder = techJobs[currentIndex].manualOrder;
-    const neighborOrder = techJobs[targetIndex].manualOrder;
+    // Swap the two stops and number the whole day again, so stops that shared a number still move
+    const order = techJobs.map(s => s.id);
+    [order[currentIndex], order[targetIndex]] = [order[targetIndex], order[currentIndex]];
+    const position = new Map(order.map((id, i) => [id, i]));
 
     const updated = services.map(job => {
-      if (job.id === techJobs[currentIndex].id) {
-        return { ...job, manualOrder: neighborOrder };
-      }
-      if (job.id === techJobs[targetIndex].id) {
-        return { ...job, manualOrder: currentOrder };
-      }
-      return job;
+      const i = position.get(job.id);
+      return i !== undefined && job.manualOrder !== i ? { ...job, manualOrder: i } : job;
     });
 
     setServices(updated);
 
-    notifyTechnician(
-      targetService.assignedTechnicianId,
-      '🔄 Ajuste en Orden de Visitas',
-      `Se ha modificado el orden de la parada "${targetService.customerName}". Revisa tu horario estimado.`,
-      { type: 'urgent_change', priority: 'normal', serviceCode: targetService.code }
-    );
+    // The technician is told when someone else changes their order
+    if (!(access.role === 'tecnico' && access.technicianId === targetService.assignedTechnicianId)) {
+      notifyTechnician(
+        targetService.assignedTechnicianId,
+        '🔄 Ajuste en Orden de Visitas',
+        `Se ha modificado el orden de la parada "${targetService.customerName}". Revisa tu horario estimado.`,
+        { type: 'urgent_change', priority: 'normal', serviceCode: targetService.code }
+      );
+    }
   };
 
   // 4. Reassign Job
@@ -1298,6 +1297,7 @@ export default function App() {
             onAddWarehouseStop={handleAddWarehouseStop}
             onRemoveStop={handleRemoveStop}
             onOpenWorkOrders={() => setCurrentTab('workorders')}
+            onMoveStop={handleMoveStop}
           />
         )}
 

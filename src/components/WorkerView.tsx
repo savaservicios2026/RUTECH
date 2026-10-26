@@ -19,7 +19,9 @@ import {
   FileText,
   User,
   ExternalLink,
-  MessageSquare
+  MessageSquare,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { formatDuration, calculateDistanceKm, estimateTravelTimeMinutes, minutesToTimeString, roadTravel } from '../utils/geo';
 import { StartTimeEditor } from './StartTimeEditor';
@@ -36,6 +38,7 @@ interface WorkerViewProps {
   onAddWarehouseStop: (technicianId: string, minutes: number, reason: string, range?: { from: string; to: string }) => void;
   onRemoveStop: (serviceId: string) => void;
   onOpenWorkOrders: () => void;
+  onMoveStop?: (serviceId: string, direction: 'up' | 'down') => void;
   vans: Van[];
   summaries: Map<string, TechnicianRouteSummary>;
   onChangeLunch: (technicianId: string, date: string, lunch: { start: string; minutes: number } | null) => void;
@@ -54,6 +57,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
   onAddWarehouseStop,
   onRemoveStop,
   onOpenWorkOrders,
+  onMoveStop,
   vans,
   summaries,
   onChangeLunch,
@@ -448,6 +452,27 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                         ? 'llegada real'
                         : `(${job.estimatedDuration} min)`}
                     </span>
+                    {/* The technician does the visits in the order they prefer */}
+                    {onMoveStop && !isCompleted && (
+                      <div className="mt-1.5 flex justify-end gap-1">
+                        <button
+                          onClick={() => onMoveStop(job.id, 'up')}
+                          disabled={index === 0 || allTechJobs[index - 1].status === 'completado'}
+                          aria-label="Hacer antes"
+                          className="w-9 h-9 rounded-lg border border-slate-300 bg-white text-slate-700 flex items-center justify-center disabled:opacity-30 cursor-pointer"
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => onMoveStop(job.id, 'down')}
+                          disabled={index === allTechJobs.length - 1}
+                          aria-label="Hacer después"
+                          className="w-9 h-9 rounded-lg border border-slate-300 bg-white text-slate-700 flex items-center justify-center disabled:opacity-30 cursor-pointer"
+                        >
+                          <ArrowDown className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -263,22 +263,22 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                       <button
                         onClick={() => onMoveStop(job.id, 'up')}
                         disabled={isFirst}
-                        className={`p-1 rounded hover:bg-slate-100 cursor-pointer ${
+                        className={`p-2 rounded-lg border border-slate-200 hover:bg-slate-100 cursor-pointer ${
                           isFirst ? 'opacity-30 cursor-not-allowed' : 'text-slate-600 hover:text-slate-900'
                         }`}
                         title="Adelantar orden de parada"
                       >
-                        <ArrowUp className="w-3.5 h-3.5" />
+                        <ArrowUp className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => onMoveStop(job.id, 'down')}
                         disabled={isLast}
-                        className={`p-1 rounded hover:bg-slate-100 cursor-pointer ${
+                        className={`p-2 rounded-lg border border-slate-200 hover:bg-slate-100 cursor-pointer ${
                           isLast ? 'opacity-30 cursor-not-allowed' : 'text-slate-600 hover:text-slate-900'
                         }`}
                         title="Retrasar orden de parada"
                       >
-                        <ArrowDown className="w-3.5 h-3.5" />
+                        <ArrowDown className="w-4 h-4" />
                       </button>
                     </div>
 
