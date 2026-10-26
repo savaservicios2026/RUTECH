@@ -102,35 +102,6 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
     window.location.href = `tel:${phone.replace(/\s+/g, '')}`;
   };
 
-  // WhatsApp to the customer: the technician is on the way, arriving at (now + driving time).
-  // First the arrival is worked out, then the technician taps the ready link: phones only open
-  // WhatsApp from a direct tap, so opening it after waiting for the GPS left a blank page.
-  const [notice, setNotice] = useState<{ jobId: string; url?: string; eta?: string } | null>(null);
-  const messageCustomer = (job: ServiceJob) => {
-    const phone = (job.customerPhone || '').replace(/[^0-9]/g, '');
-    const intl = phone.length === 9 ? `34${phone}` : phone;
-    setNotice({ jobId: job.id });
-    const send = async (fromLat: number, fromLng: number) => {
-      const road = await roadTravel(fromLat, fromLng, job.location.lat, job.location.lng);
-      const minutes = road?.minutes ?? estimateTravelTimeMinutes(calculateDistanceKm(fromLat, fromLng, job.location.lat, job.location.lng));
-      const now = new Date();
-      const eta = minutesToTimeString(now.getHours() * 60 + now.getMinutes() + minutes);
-      const text = encodeURIComponent(
-        `Hola ${job.customerName}, le informamos de que el técnico de SAVA va de camino. Hora estimada de llegada: ${eta} (unos ${minutes} min).`
-      );
-      setNotice((n) => (n?.jobId === job.id ? { jobId: job.id, url: `https://wa.me/${intl}?text=${text}`, eta } : n));
-    };
-    // From where the technician is now; if the phone can't tell, from the previous stop
-    const idx = allTechJobs.findIndex((s) => s.id === job.id);
-    const prev = idx > 0 ? allTechJobs[idx - 1].location : currentTech.baseLocation;
-    if (!navigator.geolocation) return send(prev.lat, prev.lng);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => send(pos.coords.latitude, pos.coords.longitude),
-      () => send(prev.lat, prev.lng),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
-    );
-  };
-
   // "Voy en camino" also opens the WhatsApp to the customer in the same tap. The arrival is
   // worked out at once from the previous stop (waiting for the GPS would stop the phone opening WhatsApp)
   const startOnTheWay = (job: ServiceJob) => {
@@ -572,7 +543,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                 </div>
 
                 {/* Worker Quick Mobile Actions: GPS, Phone, WhatsApp */}
-                <div className="p-3 bg-slate-50/80 border-t border-slate-100 grid grid-cols-3 gap-2">
+                <div className="p-3 bg-slate-50/80 border-t border-slate-100 grid grid-cols-2 gap-2">
                   {/* GPS Button */}
                   <button
                     onClick={() => openGpsNavigation(job.location.address, job.location.lat, job.location.lng)}
@@ -593,30 +564,6 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                     <span>Llamar</span>
                   </button>
 
-                  {/* WhatsApp Notice Button: works out the arrival, then becomes the link to WhatsApp */}
-                  {notice?.jobId === job.id && notice.url ? (
-                    <a
-                      href={notice.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => setTimeout(() => setNotice(null), 500)}
-                      className="py-2 px-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all animate-pulse"
-                      title="Abrir WhatsApp con el mensaje"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>Enviar · {notice.eta}</span>
-                    </a>
-                  ) : (
-                  <button
-                    onClick={() => messageCustomer(job)}
-                    disabled={notice?.jobId === job.id}
-                    className="py-2 px-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-70"
-                    title="Avisar por WhatsApp de llegada"
-                  >
-                    {notice?.jobId === job.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />}
-                    <span>{notice?.jobId === job.id ? 'Calculando…' : 'Avisar'}</span>
-                  </button>
-                  )}
                 </div>
 
                 {/* Status Advancement Buttons for the Technician */}
@@ -630,7 +577,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
                         className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                       >
                         <Play className="w-3 h-3 fill-white" />
-                        <span>Voy en camino</span>
+                        <span>Voy en camino · avisar</span>
                       </button>
                     ) : null}
 
