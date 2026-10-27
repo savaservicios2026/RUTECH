@@ -20,6 +20,19 @@ interface DeliveriesViewProps {
   showToast: (msg: string) => void;
 }
 
+type Tab = 'preparar' | 'listo' | 'asignada' | 'entregada';
+const TABS: [Tab, string, string, string][] = [
+  ['preparar', '📦 Pendientes de preparar', 'bg-amber-500 text-white', 'bg-amber-50 text-amber-900 border border-amber-200'],
+  ['listo', '✅ Listas para salir', 'bg-emerald-600 text-white', 'bg-emerald-50 text-emerald-900 border border-emerald-200'],
+  ['asignada', '🚐 Asignadas', 'bg-blue-600 text-white', 'bg-blue-50 text-blue-900 border border-blue-200'],
+  ['entregada', '✓ Entregadas', 'bg-slate-800 text-white', 'bg-slate-50 text-slate-700 border border-slate-200'],
+];
+
+const formatDayLong = (date: string) => {
+  const text = new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
 const formatDay = (date: string) =>
   new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'numeric' });
 
@@ -167,7 +180,8 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
   onMarkReady,
   canMarkReady,
 }) => {
-  const [filter, setFilter] = useState<DeliveryStatus>('pendiente');
+  const [filter, setFilter] = useState<Tab>('preparar');
+  const [day, setDay] = useState(''); // '' = every day
   const [editing, setEditing] = useState<Delivery | null | 'new'>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
@@ -175,14 +189,31 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
     () => deliveries.map((d) => ({ d, status: deliveryStatus(d, services) })),
     [deliveries, services]
   );
+  const inTab = (tab: Tab, d: Delivery, status: DeliveryStatus) =>
+    tab === 'entregada' ? status === 'entregada'
+    : tab === 'asignada' ? status === 'planificada'
+    : tab === 'listo' ? status !== 'entregada' && !!d.ready
+    : status !== 'entregada' && !d.ready;
   const counts = useMemo(() => {
-    const c: Record<DeliveryStatus, number> = { pendiente: 0, planificada: 0, entregada: 0 };
-    withStatus.forEach(({ status }) => c[status]++);
+    const c: Record<Tab, number> = { preparar: 0, listo: 0, asignada: 0, entregada: 0 };
+    withStatus.forEach(({ d, status }) => TABS.forEach(([t]) => inTab(t, d, status) && c[t]++));
     return c;
   }, [withStatus]);
+  // The day a delivery belongs to: its route day, else its deadline, else when it was created
+  const dayOf = (d: Delivery) => {
+    const job = d.serviceId ? services.find((s) => s.id === d.serviceId) : undefined;
+    return job?.date || d.deadline || (d.ready?.at || d.createdAt).slice(0, 10);
+  };
   const visible = withStatus
-    .filter(({ status }) => status === filter)
+    .filter(({ d, status }) => inTab(filter, d, status))
+    .filter(({ d }) => !day || dayOf(d) === day)
     .sort((a, b) => (a.d.deadline || '9999').localeCompare(b.d.deadline || '9999') || a.d.createdAt.localeCompare(b.d.createdAt));
+  // One block per day: delivered newest first, the rest soonest first
+  const byDay = useMemo(() => {
+    const groups = new Map<string, typeof visible>();
+    visible.forEach((v) => groups.set(dayOf(v.d), [...(groups.get(dayOf(v.d)) || []), v]));
+    return Array.from(groups.entries()).sort(([a], [b]) => (filter === 'entregada' ? b.localeCompare(a) : a.localeCompare(b)));
+  }, [visible, filter]);
 
   const techName = (id?: string | null) => technicians.find((t) => t.id === id)?.name || 'Sin técnico';
 
@@ -200,27 +231,36 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
         )}
       </div>
 
-      <div className="flex gap-2">
-        {(['pendiente', 'planificada', 'entregada'] as DeliveryStatus[]).map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer ${
-              filter === s ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'
-            }`}
-          >
-            {s === 'pendiente' ? 'Pendientes' : s === 'planificada' ? 'En ruta' : 'Entregadas'} ({counts[s]})
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-bold">
+        {TABS.map(([t, label, on, off]) => (
+          <button key={t} onClick={() => setFilter(t)} className={`py-2.5 px-2 rounded-xl cursor-pointer ${filter === t ? on : off}`}>
+            {label} ({counts[t]})
           </button>
         ))}
+      </div>
+      <div className="flex items-center gap-2 text-xs">
+        <CalendarDays className="w-4 h-4 text-slate-500" />
+        <span className="font-semibold text-slate-600">Día:</span>
+        <input type="date" value={day} onChange={(e) => setDay(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-2 py-1.5" />
+        {day && (
+          <button onClick={() => setDay('')} className="px-2.5 py-1.5 bg-slate-100 text-slate-700 rounded-lg font-semibold cursor-pointer">Todos los días</button>
+        )}
       </div>
 
       {visible.length === 0 ? (
         <div className="bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-sm text-slate-500">
-          {filter === 'pendiente' ? 'No hay entregas pendientes.' : filter === 'planificada' ? 'No hay entregas metidas en ruta.' : 'Todavía no hay entregas hechas.'}
+          {day ? 'No hay entregas de este apartado ese día.' : filter === 'preparar' ? 'No hay pedidos pendientes de preparar.' : filter === 'listo' ? 'No hay pedidos listos para salir.' : filter === 'asignada' ? 'No hay entregas asignadas a una ruta.' : 'Todavía no hay entregas hechas.'}
         </div>
       ) : (
+        <div className="space-y-5">
+          {byDay.map(([dayKey, items]) => (
+            <section key={dayKey}>
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-800">
+                <span>{formatDayLong(dayKey)}</span>
+                <span className="text-xs font-semibold text-slate-400">· {items.length} {items.length === 1 ? 'entrega' : 'entregas'}</span>
+              </h3>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {visible.map(({ d, status }) => {
+          {items.map(({ d, status }) => {
             const job = d.serviceId ? services.find((s) => s.id === d.serviceId) : undefined;
             const suggestions = status === 'pendiente' ? suggestRoutesForDelivery(d, services, technicians).slice(0, 4) : [];
             const overdue = status !== 'entregada' && d.deadline && d.deadline < todayIso();
@@ -329,6 +369,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
                 {status !== 'pendiente' && job && (
                   <div className={`p-2 rounded-lg text-xs flex items-center gap-1.5 ${status === 'entregada' ? 'bg-emerald-50 text-emerald-800' : 'bg-blue-50 text-blue-800'}`}>
                     {status === 'entregada' ? <CheckCircle2 className="w-4 h-4" /> : <CalendarDays className="w-4 h-4" />}
+                    {status === 'planificada' && <strong>Asignada:</strong>}
                     <span className="capitalize">{formatDay(job.date)}</span> · {techName(job.assignedTechnicianId)}
                   </div>
                 )}
@@ -367,6 +408,9 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
               </div>
             );
           })}
+        </div>
+            </section>
+          ))}
         </div>
       )}
 
