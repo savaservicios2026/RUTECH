@@ -17,6 +17,7 @@ import {
   Share2,
   Building2,
   LogOut,
+  Boxes,
 } from 'lucide-react';
 import type { AppTab } from './Header';
 
@@ -48,6 +49,7 @@ const TABS: Record<AppTab, { label: string; icon: React.ElementType }> = {
   deliveries: { label: 'Entregas', icon: Package },
   workorders: { label: 'Partes', icon: FileSignature },
   vans: { label: 'Furgonetas', icon: Truck },
+  stock: { label: 'Stock', icon: Boxes },
   analytics: { label: 'Estadísticas', icon: TrendingUp },
 };
 
@@ -74,7 +76,8 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   const main: AppTab[] = isTechnician
     ? ['worker', 'map', 'workorders', 'tickets']
     : ['map', 'worker', 'tickets', 'deliveries'];
-  const rest = (Object.keys(TABS) as AppTab[]).filter((t) => !main.includes(t));
+  // Stock is the office's warehouse app
+  const rest = (Object.keys(TABS) as AppTab[]).filter((t) => !main.includes(t) && (t !== 'stock' || canEdit));
 
   const badge = (tab: AppTab) =>
     tab === 'tickets' ? newTicketsCount : tab === 'deliveries' ? pendingDeliveriesCount : tab === 'vans' ? vanWarningsCount : tab === 'services' ? unassignedCount : 0;
