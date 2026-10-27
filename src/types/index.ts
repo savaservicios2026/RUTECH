@@ -249,6 +249,13 @@ export interface VanMaintenance {
   km?: number;
 }
 
+// Something still to do on a van (fix a light, buy chains…); when ticked off it moves to the maintenance history
+export interface VanTask {
+  id: string;
+  text: string;
+  createdAt: string; // YYYY-MM-DD
+}
+
 export interface Van {
   id: string;
   model: string;
@@ -259,6 +266,7 @@ export interface Van {
   nextItv?: string; // YYYY-MM-DD
   nextMaintenanceKm?: number; // odometer reading at which the next service is due
   maintenances: VanMaintenance[];
+  tasks?: VanTask[];
   notes?: string;
 }
 
