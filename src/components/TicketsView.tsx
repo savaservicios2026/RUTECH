@@ -5,6 +5,7 @@ import { calculateDistanceKm } from '../utils/geo';
 import { loadTicketMedia } from '../utils/tickets';
 import { TicketForm } from './TicketForm';
 import { SupplierPanel } from './SupplierPanel';
+import { CustomerRequest } from './CustomerRequest';
 
 interface TicketsViewProps {
   tickets: Ticket[];
@@ -230,6 +231,8 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
               )}
 
               <SupplierPanel ticket={t} canEdit={canEdit} userEmail={userEmail} onUpdate={onUpdateTicket} />
+
+              {stageOf(t) !== 'resuelta' && <CustomerRequest ticket={t} userEmail={userEmail} onUpdate={onUpdateTicket} />}
 
               {t.status === 'nuevo' && (
                 <div className="rounded-lg bg-indigo-50 border border-indigo-100 p-2.5">
