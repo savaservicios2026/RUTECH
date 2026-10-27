@@ -322,7 +322,8 @@ export default function App() {
       ...job,
       id: `srv-${Date.now()}`,
       code: /-V\d*$/.test(job.code) ? job.code : `${job.code}-V`,
-      description: [`Vuelta: ${job.inSituReport?.returnReason || ''}`, job.description].filter(Boolean).join('\n'),
+      // Only why they go back; the old job's description stays in its own parte
+      description: `Vuelta: ${job.inSituReport?.returnReason || ''}`.trim(),
       // Next working day at the earliest, with no fixed time: it goes into the best gap of the route
       date: (() => {
         const d = new Date();
