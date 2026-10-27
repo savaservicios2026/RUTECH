@@ -414,7 +414,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <Boxes className="w-4 h-4" />
-            <span>Stock</span>
+            <span>Pedidos</span>
           </button>
           )}
 
