@@ -22,6 +22,7 @@ import {
 import { Header, AppTab } from './components/Header';
 import { DayPicker } from './components/DayPicker';
 import { WorkOrdersView } from './components/WorkOrdersView';
+import { StockView } from './components/StockView';
 import { MapView } from './components/MapView';
 import { RouteSidebar } from './components/RouteSidebar';
 import { TimelineView } from './components/TimelineView';
@@ -69,6 +70,9 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<AppTab>(
     access.role === 'tecnico' ? 'worker' : 'map'
   );
+  // The Stock section loads the first time it is opened and then stays open, so switching tabs does not reload it
+  const [stockOpened, setStockOpened] = useState(false);
+  useEffect(() => { if (currentTab === 'stock') setStockOpened(true); }, [currentTab]);
 
   // Load from localStorage or initial mock data
   const [storedTechnicians, setTechniciansState] = useState<Technician[]>(() => {
@@ -1303,6 +1307,8 @@ export default function App() {
             onMoveStop={handleMoveStop}
           />
         )}
+
+        {canEdit && stockOpened && <StockView hidden={currentTab !== 'stock'} />}
 
         {currentTab === 'workorders' && (
           <WorkOrdersView

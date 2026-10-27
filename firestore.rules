@@ -68,9 +68,25 @@ service cloud.firestore {
     }
     // Any other section (vans and future ones): everyone with a role reads, office edits
     match /{section}/{id} {
-      allow read: if hasRole() && section != 'roles';
+      allow read: if hasRole() && section != 'roles' && !(section in stockSections());
       allow delete: if isOffice();
       allow create, update: if isOffice() && current();
+      // Shop4Fit Stocks (the Stock section): only the office; that app does not save _v
+      allow read, write: if isOffice() && section in stockSections() && section != 'importador';
+    }
+    function stockSections() { return ['productos', 'movimientos', 'pedidosProveedor', 'pedidosCliente', 'solicitudes', 'importador']; }
+    // The mail and WhatsApp importers sign in as this user (no role in RUTECH): they only add quote requests
+    function isImporter() { return signedIn() && request.auth.token.email == 'importador@rutech-61f25.firebaseapp.com'; }
+    match /solicitudes/{id} {
+      allow create: if isImporter() && request.resource.data.mensajes is list;
+      allow update: if isImporter()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mensajes', 'ultimo', 'sinLeer'])
+        && request.resource.data.mensajes.size() >= resource.data.mensajes.size();
+    }
+    // How far the mail importer has read, and the senders the office told it to skip
+    match /importador/{id} {
+      allow read, write: if isImporter();
+      allow read, write: if isOffice() && id == 'ignorados';
     }
     match /services/{id} {
       function myTechId() { return get(roleDoc()).data.technicianId; }

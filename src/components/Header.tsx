@@ -20,12 +20,13 @@ import {
   Package,
   FileSignature,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Boxes
 } from 'lucide-react';
 import logoSava from '../assets/logo-sava-dark.png?inline';
 import { OptimizationMetrics } from '../types';
 
-export type AppTab = 'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans' | 'tickets' | 'deliveries' | 'workorders';
+export type AppTab = 'map' | 'timeline' | 'services' | 'technicians' | 'analytics' | 'worker' | 'vans' | 'tickets' | 'deliveries' | 'workorders' | 'stock';
 
 // Sections that show one day; on phones their day is chosen right under the top bar
 const DATED_TABS: AppTab[] = ['map', 'timeline', 'technicians', 'worker', 'analytics'];
@@ -402,6 +403,20 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             )}
           </button>
+
+          {canEdit && (
+          <button
+            onClick={() => setCurrentTab('stock')}
+            className={`flex items-center gap-2 py-2 px-3 lg:px-2.5 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+              currentTab === 'stock'
+                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <Boxes className="w-4 h-4" />
+            <span>Stock</span>
+          </button>
+          )}
 
           <button
             onClick={() => setCurrentTab('analytics')}
