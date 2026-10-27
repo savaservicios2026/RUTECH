@@ -120,6 +120,7 @@ export default function App() {
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [serviceToEdit, setServiceToEdit] = useState<ServiceJob | null>(null);
   const [parteAfterSave, setParteAfterSave] = useState(false); // new service created from Partes
+  const [newUndated, setNewUndated] = useState(false); // new service without a date yet
   const [isTechnicianModalOpen, setIsTechnicianModalOpen] = useState(false);
   const [technicianToEdit, setTechnicianToEdit] = useState<Technician | null>(null);
   const [isConflictsModalOpen, setIsConflictsModalOpen] = useState(false);
@@ -601,7 +602,7 @@ export default function App() {
       const isDelivery = job.code.startsWith('ENT-');
       const isBreakdown = job.code.startsWith('AV-');
       const what = isDelivery ? '📦 Nueva entrega' : isBreakdown ? '🚨 Nueva avería' : '🛠️ Nuevo servicio';
-      const when = `${new Date(`${job.date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}${
+      const when = `${job.date ? new Date(`${job.date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : 'sin fecha todavía'}${
         job.timeSlot.type === 'cualquiera' ? '' : ` · ${job.timeSlot.startHour}-${job.timeSlot.endHour}`
       }`;
       teamIds(job)
@@ -865,7 +866,7 @@ export default function App() {
     let message = before ? `Servicio ${jobToSave.code} actualizado` : `Nuevo servicio ${jobToSave.code} creado`;
 
     // No agreed time: the app puts it in the best gap of the route (and picks the technician if none)
-    const flexible = jobToSave.timeSlot.type === 'cualquiera' && jobToSave.kind !== 'nave' && jobToSave.status !== 'completado';
+    const flexible = !!jobToSave.date && jobToSave.timeSlot.type === 'cualquiera' && jobToSave.kind !== 'nave' && jobToSave.status !== 'completado';
     const moved =
       !before ||
       before.timeSlot.type !== 'cualquiera' ||
@@ -1170,8 +1171,9 @@ export default function App() {
             selectedDate={selectedDate}
             technicians={technicians}
             vans={vans}
-            onOpenNewService={() => {
+            onOpenNewService={(undated) => {
               setServiceToEdit(null);
+              setNewUndated(!!undated);
               setIsServiceModalOpen(true);
             }}
             onEditService={openServiceEditor}
@@ -1413,8 +1415,10 @@ export default function App() {
           setConvertingTicketId(null);
           setConvertingDeliveryId(null);
           setParteAfterSave(false);
+          setNewUndated(false);
         }}
         serviceToEdit={serviceToEdit}
+        startUndated={newUndated}
         technicians={technicians}
         vans={vans}
         services={storedServices}

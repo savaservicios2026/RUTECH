@@ -34,7 +34,7 @@ interface ServicesViewProps {
   selectedDate: string;
   technicians: Technician[];
   vans: Van[];
-  onOpenNewService: () => void;
+  onOpenNewService: (undated?: boolean) => void;
   onEditService: (service: ServiceJob) => void;
   onDeleteService: (serviceId: string) => void;
   onAssignJob: (serviceId: string, technicianId: string | null) => void;
@@ -43,7 +43,7 @@ interface ServicesViewProps {
 }
 
 const formatDay = (date: string) =>
-  new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'numeric' });
+  !date ? 'Sin fecha' : new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'numeric' });
 
 export const ServicesView: React.FC<ServicesViewProps> = ({
   services,
@@ -60,6 +60,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedDay, setSelectedDay] = useState<'day' | 'upcoming' | 'all'>('day');
+  const [undatedTab, setUndatedTab] = useState(false); // "Pendientes de asignar": services without a date yet
+  const undatedCount = services.filter((s) => !s.date).length;
   // Day shown in the list; starts on the app's selected day and can be picked from the calendar
   const [filterDate, setFilterDate] = useState(selectedDate);
   useEffect(() => setFilterDate(selectedDate), [selectedDate]);
@@ -73,6 +75,8 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   const filteredServices = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     return services.filter((job) => {
+      if (undatedTab !== !job.date) return false;
+      if (undatedTab) return true;
       if (selectedDay === 'day' && job.date !== filterDate) return false;
       if (selectedDay === 'upcoming' && job.date < today) return false;
 
@@ -101,7 +105,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
 
       return matchesSearch && matchesStatus && matchesPriority && matchesSkill;
     }).sort((a, b) => a.date.localeCompare(b.date) || a.manualOrder - b.manualOrder);
-  }, [services, searchTerm, selectedStatus, selectedPriority, selectedSkill, selectedDay, filterDate]);
+  }, [services, searchTerm, selectedStatus, selectedPriority, selectedSkill, selectedDay, filterDate, undatedTab]);
 
   // Helper to find qualified technicians for a specific job
   const getQualifiedCandidates = (job: ServiceJob) => {
@@ -380,6 +384,21 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
     <div className="space-y-5">
       {/* Search & Filter Toolbar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
+        {/* Dated services apart from the ones still waiting for a date */}
+        <div className="grid grid-cols-2 gap-2 text-sm font-bold">
+          <button
+            onClick={() => setUndatedTab(false)}
+            className={`py-2.5 rounded-xl cursor-pointer ${!undatedTab ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-900 border border-blue-200'}`}
+          >
+            📅 Con fecha
+          </button>
+          <button
+            onClick={() => setUndatedTab(true)}
+            className={`py-2.5 rounded-xl cursor-pointer ${undatedTab ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-900 border border-amber-200'}`}
+          >
+            📋 Pendientes de asignar ({undatedCount})
+          </button>
+        </div>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Search Bar */}
           <div className="relative flex-1">
@@ -415,11 +434,11 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             </div>
 
             <button
-              onClick={onOpenNewService}
+              onClick={() => onOpenNewService(undatedTab)}
               className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>Nuevo Servicio</span>
+              <span>{undatedTab ? 'Nuevo servicio sin fecha' : 'Nuevo Servicio'}</span>
             </button>
           </div>
         </div>
@@ -427,7 +446,7 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
         {/* Filters Row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100 text-xs">
           {/* Day filter */}
-          <div>
+          <div className={undatedTab ? 'hidden' : ''}>
             <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Día:</label>
             <input
               type="date"

@@ -22,7 +22,7 @@ const formatDayLong = (date: string) => {
 };
 
 const formatDay = (date: string) =>
-  new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  !date ? 'Sin fecha' : new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
 /** Every closed work order, newest first, with its signed PDF. */
 export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({

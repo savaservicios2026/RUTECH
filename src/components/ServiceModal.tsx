@@ -31,6 +31,7 @@ interface ServiceModalProps {
   vans: Van[];
   services: ServiceJob[]; // stored jobs, to tell if the van is already out that day
   onSave: (service: ServiceJob) => void;
+  startUndated?: boolean; // new service opened from "Pendientes de asignar"
 }
 
 export const ServiceModal: React.FC<ServiceModalProps> = ({
@@ -41,6 +42,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   vans,
   services,
   onSave,
+  startUndated,
 }) => {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -50,6 +52,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   const [lat, setLat] = useState<number>(42.8782);
   const [lng, setLng] = useState<number>(-8.5448);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [noDate, setNoDate] = useState(false); // date not known yet: waits in "Pendientes de asignar"
   const [flexible, setFlexible] = useState(false);
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:30');
@@ -76,7 +79,8 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
       setAddress(serviceToEdit.location.address);
       setLat(serviceToEdit.location.lat);
       setLng(serviceToEdit.location.lng);
-      setDate(serviceToEdit.date);
+      setNoDate(!serviceToEdit.date);
+      setDate(serviceToEdit.date || new Date().toISOString().split('T')[0]);
       setFlexible(serviceToEdit.timeSlot.type === 'cualquiera');
       setStartTime(serviceToEdit.timeSlot.startHour);
       setDuration(serviceToEdit.estimatedDuration);
@@ -100,6 +104,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
       setLat(42.8782);
       setLng(-8.5448);
       setDate(new Date().toISOString().split('T')[0]);
+      setNoDate(!!startUndated);
       setFlexible(false);
       setStartTime('09:00');
       setEndTime('10:30');
@@ -115,7 +120,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
     setShowPin(false);
     setPinMoved(false);
     setApproximate(!!serviceToEdit?.location.approximate);
-  }, [serviceToEdit, isOpen]);
+  }, [serviceToEdit, isOpen, startUndated]);
 
   // Puts the pin where the written address is, so it can then be fine-tuned by hand
   const searchAddressOnMap = async () => {
@@ -205,7 +210,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
         lng: point.lng,
         ...(isApproximate && { approximate: true }),
       },
-      date,
+      date: noDate ? '' : date,
       timeSlot: flexible
         ? { type: 'cualquiera', label: 'Sin hora fija', startHour: '08:00', endHour: '19:00' }
         : { type: 'personalizada', label: `${startTime} - ${endTime}`, startHour: startTime, endHour: endTime },
@@ -360,14 +365,19 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
           {/* Date and time */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="col-span-2 sm:col-span-1">
-              <label className="block font-semibold text-slate-700 mb-1">Fecha *</label>
+              <label className="block font-semibold text-slate-700 mb-1">Fecha {noDate ? '' : '*'}</label>
               <input
                 type="date"
-                required
-                value={date}
+                required={!noDate}
+                disabled={noDate}
+                value={noDate ? '' : date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:opacity-40"
               />
+              <label className="mt-1.5 flex items-center gap-1.5 text-slate-600 cursor-pointer">
+                <input type="checkbox" checked={noDate} onChange={(e) => setNoDate(e.target.checked)} />
+                Sin fecha todavía
+              </label>
             </div>
             <div>
               <label className="block font-semibold text-slate-700 mb-1">Hora de inicio</label>
