@@ -1107,7 +1107,7 @@ export default function App() {
         isOptimizing={isOptimizing}
         canEdit={canEdit}
         vanWarningsCount={countVanWarnings(vans)}
-        newTicketsCount={tickets.filter((t) => t.status === 'nuevo').length}
+        newTicketsCount={tickets.filter((t) => t.status === 'nuevo' && (!t.supplierSend || t.supplierSend.status === 'error')).length}
         pendingDeliveriesCount={deliveries.filter((d) => deliveryStatus(d, services) === 'pendiente').length}
       />
 
@@ -1377,7 +1377,7 @@ export default function App() {
         setCurrentTab={setCurrentTab}
         isTechnician={access.role === 'tecnico'}
         canEdit={canEdit}
-        newTicketsCount={tickets.filter((t) => t.status === 'nuevo').length}
+        newTicketsCount={tickets.filter((t) => t.status === 'nuevo' && (!t.supplierSend || t.supplierSend.status === 'error')).length}
         pendingDeliveriesCount={deliveries.filter((d) => deliveryStatus(d, services) === 'pendiente').length}
         vanWarningsCount={countVanWarnings(vans)}
         unassignedCount={metrics.unassignedJobs}

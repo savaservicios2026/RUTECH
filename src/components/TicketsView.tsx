@@ -30,6 +30,13 @@ const URGENCY_STYLE: Record<PriorityType, string> = {
 };
 
 // How close a ticket must be to a planned visit to suggest fitting it into that route
+type Stage = 'sin' | 'tramite' | 'resuelta';
+const STAGES: [Stage, string, string, string][] = [
+  ['sin', '🆕 Sin gestionar', 'bg-rose-600 text-white', 'bg-rose-50 text-rose-900 border border-rose-200'],
+  ['tramite', '⏳ En trámite', 'bg-amber-500 text-white', 'bg-amber-50 text-amber-900 border border-amber-200'],
+  ['resuelta', '✓ Resueltas', 'bg-emerald-600 text-white', 'bg-emerald-50 text-emerald-900 border border-emerald-200'],
+];
+
 const NEARBY_KM = 30;
 
 export const PUBLIC_TICKET_URL = `${location.origin}${location.pathname}#aviso`;
@@ -84,27 +91,37 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
   userEmail,
   onEditTicket,
 }) => {
-  const [filter, setFilter] = useState<TicketStatus>('nuevo');
+  const [filter, setFilter] = useState<Stage>('sin');
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Ticket | null>(null);
   const today = new Date().toISOString().split('T')[0];
 
+  // Not handled yet / being handled (supplier notified or a job planned) / solved
+  const stageOf = (t: Ticket): Stage => {
+    if (t.status === 'cerrado') return 'resuelta';
+    if (t.status === 'convertido') {
+      const job = services.find((s) => s.id === t.serviceId);
+      return job?.status === 'completado' && job.inSituReport?.outcome !== 'volver' ? 'resuelta' : 'tramite';
+    }
+    return t.supplierSend && t.supplierSend.status !== 'error' ? 'tramite' : 'sin';
+  };
+
   const counts = useMemo(() => {
-    const c: Record<TicketStatus, number> = { nuevo: 0, convertido: 0, cerrado: 0 };
-    tickets.forEach((t) => { c[t.status] = (c[t.status] || 0) + 1; });
+    const c: Record<Stage, number> = { sin: 0, tramite: 0, resuelta: 0 };
+    tickets.forEach((t) => c[stageOf(t)]++);
     return c;
-  }, [tickets]);
+  }, [tickets, services]);
 
   const visible = useMemo(
     () =>
       tickets
-        .filter((t) => t.status === filter)
+        .filter((t) => stageOf(t) === filter)
         .sort((a, b) =>
-          filter === 'nuevo'
+          filter !== 'resuelta'
             ? URGENCY_RANK[a.urgency] - URGENCY_RANK[b.urgency] || a.createdAt.localeCompare(b.createdAt)
             : b.createdAt.localeCompare(a.createdAt)
         ),
-    [tickets, filter]
+    [tickets, services, filter]
   );
 
   // Planned visits near a ticket, so the office sees when a route already passes close by
@@ -149,13 +166,9 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
             </div>
           )}
         </div>
-        <div className="flex gap-2">
-          {([['nuevo', 'Pendientes'], ['convertido', 'Con parte'], ['cerrado', 'Cerrados']] as [TicketStatus, string][]).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${filter === key ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
-            >
+        <div className="grid grid-cols-3 gap-2 text-xs sm:text-sm font-bold">
+          {STAGES.map(([key, label, on, off]) => (
+            <button key={key} onClick={() => setFilter(key)} className={`py-2.5 px-1 rounded-xl cursor-pointer ${filter === key ? on : off}`}>
               {label} ({counts[key]})
             </button>
           ))}
@@ -246,13 +259,18 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
                         <CheckCircle2 className="w-4 h-4" />Crear parte de trabajo
                       </button>
                       <button onClick={() => onSetStatus(t.id, 'cerrado')} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-slate-50">
-                        <XCircle className="w-4 h-4" />Cerrar sin parte
+                        <XCircle className="w-4 h-4" />Marcar resuelta sin parte
                       </button>
                     </>
                   )}
                   {t.status === 'convertido' && t.serviceId && (
                     <button onClick={() => onOpenService(t.serviceId!)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-300 text-emerald-700 text-xs font-semibold">
                       <Wrench className="w-4 h-4" />Ver parte de trabajo
+                    </button>
+                  )}
+                  {t.status === 'convertido' && stageOf(t) === 'tramite' && (
+                    <button onClick={() => onSetStatus(t.id, 'cerrado')} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-slate-50">
+                      <CheckCircle2 className="w-4 h-4" />Marcar resuelta
                     </button>
                   )}
                   {t.status !== 'nuevo' && (
