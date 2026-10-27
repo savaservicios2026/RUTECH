@@ -83,6 +83,11 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mensajes', 'ultimo', 'sinLeer'])
         && request.resource.data.mensajes.size() >= resource.data.mensajes.size();
     }
+    // Quotes accepted in Teamleader: the importer only creates them once, as new orders («tl-<quote id>»)
+    match /pedidosCliente/{id} {
+      allow create: if isImporter() && id.matches('tl-.+') && request.resource.data.fase == 'nuevo'
+        && request.resource.data.origen == 'teamleader' && request.resource.data.lineas is list;
+    }
     // How far the mail importer has read, and the senders the office told it to skip
     match /importador/{id} {
       allow read, write: if isImporter();
