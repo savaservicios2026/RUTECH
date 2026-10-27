@@ -74,7 +74,7 @@ service cloud.firestore {
       // Shop4Fit Stocks (the Stock section): only the office; that app does not save _v
       allow read, write: if isOffice() && section in stockSections() && section != 'importador';
     }
-    function stockSections() { return ['productos', 'movimientos', 'pedidosProveedor', 'pedidosCliente', 'solicitudes', 'importador']; }
+    function stockSections() { return ['productos', 'movimientos', 'pedidosProveedor', 'pedidosCliente', 'solicitudes', 'proveedores', 'importador']; }
     // The mail and WhatsApp importers sign in as this user (no role in RUTECH): they only add quote requests
     function isImporter() { return signedIn() && request.auth.token.email == 'importador@rutech-61f25.firebaseapp.com'; }
     match /solicitudes/{id} {
