@@ -21,6 +21,8 @@ interface TicketFormProps {
 
 /** Breakdown report form: the public page for customers and the office's "Nuevo aviso" use it. */
 export const TicketForm: React.FC<TicketFormProps> = ({ source, onCreated, onCancel, ticket, onSave }) => {
+  // A customer's notice needs brand and model, email and phone to be sent
+  const strict = !ticket && source === 'cliente';
   const [customerName, setCustomerName] = useState(ticket?.customerName || '');
   const [facility, setFacility] = useState(ticket?.facility || '');
   const [customerPhone, setCustomerPhone] = useState(ticket?.customerPhone || '');
@@ -85,6 +87,10 @@ export const TicketForm: React.FC<TicketFormProps> = ({ source, onCreated, onCan
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (strict && (!machine.trim() || !customerEmail.trim() || !customerPhone.trim())) {
+      setError('Indica la marca y modelo de la máquina, tu correo y tu teléfono para poder enviar el aviso.');
+      return;
+    }
     setSending(true);
     setError(null);
     if (ticket && onSave) {
@@ -182,13 +188,13 @@ export const TicketForm: React.FC<TicketFormProps> = ({ source, onCreated, onCan
         <label className="block text-xs font-semibold text-slate-600">Teléfono *
           <input required type="tel" maxLength={30} value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className={inputClass} />
         </label>
-        <label className="block text-xs font-semibold text-slate-600">Email
-          <input type="email" maxLength={120} value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className={inputClass} />
+        <label className="block text-xs font-semibold text-slate-600">Email{strict ? ' *' : ''}
+          <input required={strict} type="email" maxLength={120} value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className={inputClass} />
         </label>
       </div>
 
-      <label className="block text-xs font-semibold text-slate-600">Máquina (marca y modelo)
-        <input maxLength={120} placeholder="Ej. Cinta Technogym Excite 700" value={machine} onChange={(e) => setMachine(e.target.value)} className={inputClass} />
+      <label className="block text-xs font-semibold text-slate-600">Máquina (marca y modelo){strict ? ' *' : ''}
+        <input required={strict} maxLength={120} placeholder="Ej. Cinta Technogym Excite 700" value={machine} onChange={(e) => setMachine(e.target.value)} className={inputClass} />
       </label>
       <label className="block text-xs font-semibold text-slate-600">Problema *
         <input required maxLength={150} placeholder="Ej. La cinta se para sola" value={problem} onChange={(e) => setProblem(e.target.value)} className={inputClass} />
