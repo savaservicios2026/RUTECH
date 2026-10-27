@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Technician, Van, VanMaintenance } from '../types';
-import { Truck, Plus, Edit, Trash2, Wrench, CalendarClock, ShieldCheck, X, BatteryCharging, Gauge, User } from 'lucide-react';
+import { Technician, Van, VanMaintenance, VanTask } from '../types';
+import { Truck, Plus, Edit, Trash2, Wrench, CalendarClock, ShieldCheck, X, BatteryCharging, Gauge, User, ListTodo } from 'lucide-react';
 
 interface VansViewProps {
   vans: Van[];
@@ -103,6 +103,7 @@ export const VansView: React.FC<VansViewProps> = ({ vans, technicians, canEdit, 
   const [editing, setEditing] = useState<Van | null>(null);
   const [addingMaintenanceTo, setAddingMaintenanceTo] = useState<string | null>(null);
   const [maintenance, setMaintenance] = useState<VanMaintenance>({ id: '', date: '', description: '' });
+  const [taskDrafts, setTaskDrafts] = useState<Record<string, string>>({});
   const deleteArmedRef = useRef<{ id: string; until: number } | null>(null);
   const [deleteArmedId, setDeleteArmedId] = useState<string | null>(null);
 
@@ -138,6 +139,26 @@ export const VansView: React.FC<VansViewProps> = ({ vans, technicians, canEdit, 
     setMaintenance({ id: '', date: '', description: '' });
   };
 
+  const today = () => new Date().toISOString().split('T')[0];
+
+  const addTask = (van: Van) => {
+    const text = (taskDrafts[van.id] || '').trim();
+    if (!text) return;
+    const task: VanTask = { id: `tsk-${Date.now().toString(36)}`, text, createdAt: today() };
+    onSaveVan({ ...van, tasks: [...(van.tasks || []), task] });
+    setTaskDrafts((d) => ({ ...d, [van.id]: '' }));
+  };
+
+  // Ticking a task off records it in the maintenance history with today's date
+  const completeTask = (van: Van, task: VanTask) => {
+    const entry: VanMaintenance = { id: `mnt-${Date.now().toString(36)}`, date: today(), description: task.text };
+    onSaveVan({ ...van, tasks: (van.tasks || []).filter((t) => t.id !== task.id), maintenances: [...(van.maintenances || []), entry] });
+  };
+
+  const removeTask = (van: Van, taskId: string) => {
+    onSaveVan({ ...van, tasks: (van.tasks || []).filter((t) => t.id !== taskId) });
+  };
+
   const inputClass = 'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
 
   return (
@@ -148,7 +169,7 @@ export const VansView: React.FC<VansViewProps> = ({ vans, technicians, canEdit, 
             <Truck className="w-5 h-5 text-blue-600" />
             Furgonetas
           </h2>
-          <p className="text-xs text-slate-500">Matrícula, mantenimientos e ITV de cada furgoneta. Avisa en ámbar a 30 días de la ITV o a 1.000 km del mantenimiento, y en rojo si ya ha vencido.</p>
+          <p className="text-xs text-slate-500">Matrícula, pendientes, mantenimientos e ITV de cada furgoneta. Al marcar un pendiente como hecho pasa a mantenimientos. Avisa en ámbar a 30 días de la ITV o a 1.000 km del mantenimiento, y en rojo si ya ha vencido.</p>
         </div>
         {canEdit && (
           <button
@@ -206,6 +227,51 @@ export const VansView: React.FC<VansViewProps> = ({ vans, technicians, canEdit, 
               <div className="grid grid-cols-2 gap-2">
                 <DueBadge label="Próxima ITV" date={van.nextItv} />
                 <KmBadge van={van} />
+              </div>
+
+              <div>
+                <h4 className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                  <ListTodo className="w-3.5 h-3.5" />Pendientes
+                  {(van.tasks || []).length > 0 && <span className="rounded-full bg-amber-100 text-amber-700 px-1.5 text-[10px] font-bold">{(van.tasks || []).length}</span>}
+                </h4>
+                {(van.tasks || []).length === 0 ? (
+                  <p className="text-xs text-slate-400 mt-1">Nada pendiente.</p>
+                ) : (
+                  <ul className="mt-1 space-y-1">
+                    {(van.tasks || []).map((t) => (
+                      <li key={t.id} className="flex items-start gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          disabled={!canEdit}
+                          onChange={() => completeTask(van, t)}
+                          className="mt-0.5 cursor-pointer"
+                          title="Marcar como hecho (pasa a mantenimientos con la fecha de hoy)"
+                        />
+                        <span className="flex-1 text-slate-700">{t.text} <span className="text-slate-400">· {formatDate(t.createdAt)}</span></span>
+                        {canEdit && (
+                          <button onClick={() => removeTask(van, t.id)} className="text-slate-400 hover:text-rose-500 cursor-pointer" title="Quitar sin hacer">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {canEdit && (
+                  <form
+                    onSubmit={(e) => { e.preventDefault(); addTask(van); }}
+                    className="mt-2 flex gap-2"
+                  >
+                    <input
+                      type="text"
+                      placeholder="Añadir pendiente (ej. cambiar luz de freno)"
+                      value={taskDrafts[van.id] || ''}
+                      onChange={(e) => setTaskDrafts((d) => ({ ...d, [van.id]: e.target.value }))}
+                      className="flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button type="submit" className="px-2.5 py-1.5 text-xs rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 cursor-pointer">Añadir</button>
+                  </form>
+                )}
               </div>
 
               <div>
