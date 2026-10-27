@@ -49,7 +49,7 @@ const TABS: Record<AppTab, { label: string; icon: React.ElementType }> = {
   deliveries: { label: 'Entregas', icon: Package },
   workorders: { label: 'Partes', icon: FileSignature },
   vans: { label: 'Furgonetas', icon: Truck },
-  stock: { label: 'Stock', icon: Boxes },
+  stock: { label: 'Pedidos', icon: Boxes },
   analytics: { label: 'Estadísticas', icon: TrendingUp },
 };
 

@@ -4,7 +4,7 @@ import { ExternalLink } from 'lucide-react';
 /** Shop4Fit Stocks lives in its own repository; it shares this app's Firebase project and sign-in (same github.io origin). */
 export const STOCK_URL = 'https://savaservicios2026.github.io/shop4fit-stocks/';
 
-/** Stock section (office only): the warehouse stock app, embedded. */
+/** Pedidos section (office only): the warehouse stock app, embedded. */
 export const StockView: React.FC<{ hidden?: boolean }> = ({ hidden }) => (
   <div className={hidden ? 'hidden' : 'flex-1 flex flex-col gap-2'}>
     <div className="flex justify-end">
