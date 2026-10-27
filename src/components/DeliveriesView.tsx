@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Package, Plus, MapPin, Phone, Mail, MessageSquare, Route, CheckCircle2, Trash2, Edit, X, Loader2, CalendarDays, Navigation } from 'lucide-react';
 import { Delivery, DeliveryStatus, ServiceJob, Technician } from '../types';
 import { DeliverySuggestion, deliveryStatus, suggestRoutesForDelivery, todayIso } from '../utils/deliveries';
+import { AttachmentsBox } from './AttachmentsBox';
 import { geocodeAddress, zoneCenter, zoneFor } from '../utils/tickets';
 
 interface DeliveriesViewProps {
@@ -75,6 +76,8 @@ const DeliveryForm: React.FC<{
   onCancel: () => void;
   onSave: (d: Delivery) => void;
 }> = ({ initial, onCancel, onSave }) => {
+  // Fixed id so documents can be attached before the delivery is saved
+  const [deliveryId] = useState(() => initial?.id || `ent-${Date.now()}`);
   const [form, setForm] = useState(() =>
     initial
       ? {
@@ -109,7 +112,7 @@ const DeliveryForm: React.FC<{
       location = { address: form.address.trim(), lat: p.lat, lng: p.lng, zone, approximate: !found || found.approximate };
     }
     onSave({
-      id: initial?.id || `ent-${Date.now()}`,
+      id: deliveryId,
       createdAt: initial?.createdAt || new Date().toISOString(),
       facility: form.facility.trim(),
       customerName: form.customerName.trim(),
@@ -147,6 +150,9 @@ const DeliveryForm: React.FC<{
             <label><span className="block text-xs font-bold text-slate-600 mb-1">Tiempo de entrega (min)</span><input className={inputClass} type="number" min={5} step={5} value={form.estimatedMinutes} onChange={set('estimatedMinutes')} /></label>
           </div>
           <label className="block"><span className="block text-xs font-bold text-slate-600 mb-1">Notas</span><textarea className={inputClass} rows={2} value={form.notes} onChange={set('notes')} placeholder="Horario de recepción, acceso, etc." /></label>
+          <div className="text-xs p-3 bg-slate-50 border border-slate-200 rounded-lg">
+            <AttachmentsBox serviceId={deliveryId} section="servicio" title="Documentos (parte, albarán, fotos)" />
+          </div>
           {error && <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 font-semibold text-xs">{error}</div>}
         </div>
         <div className="p-3 border-t bg-slate-50 flex justify-end gap-2">
@@ -289,6 +295,10 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-900">
                   <span className="font-bold">📦 Material:</span> {d.items}
                   {d.notes && <div className="text-slate-600 mt-1">{d.notes}</div>}
+                </div>
+
+                <div className="text-xs">
+                  <AttachmentsBox serviceId={d.id} section="servicio" title="Documentos" />
                 </div>
 
                 <div className="space-y-1 text-xs text-slate-700">
