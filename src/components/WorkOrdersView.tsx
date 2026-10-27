@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FileSignature, Search, Download, Printer, Send, Loader2, Pencil } from 'lucide-react';
+import { FileSignature, Search, Download, Printer, Send, Loader2, Pencil, Plus, X } from 'lucide-react';
 import { CompanyInfo, ServiceJob, Technician } from '../types';
 import { teamIds } from '../utils/teams';
 import { downloadWorkOrderPdf, printWorkOrder, sendWorkOrderToCustomer } from '../utils/workOrder';
@@ -12,6 +12,7 @@ interface WorkOrdersViewProps {
   teamNamesFor: (job: ServiceJob) => string;
   onOpen: (job: ServiceJob) => void;
   onScheduleReturn?: (job: ServiceJob) => void; // office: put the return visit back into Servicios
+  onNewService?: () => void; // office: create a service and fill its parte straight away
   showToast: (msg: string) => void;
 }
 
@@ -32,8 +33,11 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({
   teamNamesFor,
   onOpen,
   onScheduleReturn,
+  onNewService,
   showToast,
 }) => {
+  const [picking, setPicking] = useState(false);
+  const [pickSearch, setPickSearch] = useState('');
   const [search, setSearch] = useState('');
   const [techFilter, setTechFilter] = useState(onlyTechnicianId || 'all');
   const [outcomeFilter, setOutcomeFilter] = useState<'resuelto' | 'volver'>(() =>
@@ -69,6 +73,23 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({
     return Array.from(groups.entries());
   }, [orders]);
 
+  // Services still without a closed parte, nearest to today first
+  const openJobs = useMemo(() => {
+    const q = pickSearch.trim().toLowerCase();
+    const today = new Date().toISOString().slice(0, 10);
+    const dist = (d: string) => Math.abs(new Date(`${d}T12:00:00`).getTime() - new Date(`${today}T12:00:00`).getTime());
+    return services
+      .filter((s) => s.kind !== 'nave' && s.status !== 'completado')
+      .filter((s) => !onlyTechnicianId || teamIds(s).includes(onlyTechnicianId))
+      .filter(
+        (s) =>
+          !q ||
+          [s.code, s.customerName, s.title, s.location.address].filter(Boolean).some((t) => t!.toLowerCase().includes(q))
+      )
+      .sort((a, b) => dist(a.date) - dist(b.date) || a.date.localeCompare(b.date))
+      .slice(0, 40);
+  }, [services, pickSearch, onlyTechnicianId]);
+
   const download = async (job: ServiceJob) => {
     setBusyId(job.id);
     try {
@@ -82,11 +103,76 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({
 
   return (
     <div className="space-y-4">
+      {picking && (
+        <div className="fixed inset-0 z-[1000] bg-slate-900/50 flex items-center justify-center p-4" onClick={() => setPicking(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <h3 className="font-bold text-slate-800">Nuevo parte de trabajo</h3>
+              <button onClick={() => setPicking(false)} className="p-1 text-slate-500 hover:text-slate-800 cursor-pointer" aria-label="Cerrar">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 border-b border-slate-100">
+              <p className="text-xs text-slate-500">Elige el servicio al que corresponde el parte.</p>
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  autoFocus
+                  value={pickSearch}
+                  onChange={(e) => setPickSearch(e.target.value)}
+                  placeholder="Buscar cliente, código, trabajo..."
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                />
+              </div>
+              {onNewService && (
+                <button
+                  onClick={() => {
+                    setPicking(false);
+                    onNewService();
+                  }}
+                  className="w-full py-2 border border-dashed border-blue-400 text-blue-700 rounded-lg text-sm font-bold cursor-pointer hover:bg-blue-50"
+                >
+                  + No está en la lista: crear servicio nuevo
+                </button>
+              )}
+            </div>
+            <div className="overflow-y-auto p-2">
+              {openJobs.length === 0 ? (
+                <div className="text-center py-8 text-sm text-slate-500">No hay servicios sin parte.</div>
+              ) : (
+                openJobs.map((job) => (
+                  <button
+                    key={job.id}
+                    onClick={() => {
+                      setPicking(false);
+                      onOpen(job);
+                    }}
+                    className="w-full text-left p-3 rounded-lg hover:bg-slate-50 border-b border-slate-100 last:border-0 cursor-pointer text-xs"
+                  >
+                    <div className="flex justify-between gap-2">
+                      <span className="font-mono font-bold text-slate-500">{job.code}</span>
+                      <span className="capitalize text-slate-500">{formatDay(job.date)}</span>
+                    </div>
+                    <div className="font-bold text-sm text-slate-900">{job.customerName}</div>
+                    <div className="text-slate-600">{job.title} · {teamNamesFor(job) || 'sin técnico'}</div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
         <div className="flex items-center gap-2">
           <FileSignature className="w-5 h-5 text-blue-600" />
           <h2 className="font-bold text-slate-800">Partes de trabajo</h2>
           <span className="text-xs text-slate-500">{orders.length} {outcomeFilter === 'volver' ? 'por volver' : 'resueltos'}</span>
+          <button
+            onClick={() => setPicking(true)}
+            className="ml-auto flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Nuevo parte
+          </button>
         </div>
         {/* Resolved work orders apart from the ones where they have to go back */}
         <div className="grid grid-cols-2 gap-2 text-sm font-bold">

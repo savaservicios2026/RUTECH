@@ -119,6 +119,7 @@ export default function App() {
   // Modals state
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [serviceToEdit, setServiceToEdit] = useState<ServiceJob | null>(null);
+  const [parteAfterSave, setParteAfterSave] = useState(false); // new service created from Partes
   const [isTechnicianModalOpen, setIsTechnicianModalOpen] = useState(false);
   const [technicianToEdit, setTechnicianToEdit] = useState<Technician | null>(null);
   const [isConflictsModalOpen, setIsConflictsModalOpen] = useState(false);
@@ -1309,6 +1310,15 @@ export default function App() {
             onlyTechnicianId={access.role === 'tecnico' ? access.technicianId : undefined}
             teamNamesFor={teamNamesFor}
             onScheduleReturn={canEdit ? openReturnVisit : undefined}
+            onNewService={
+              canEdit
+                ? () => {
+                    setServiceToEdit(null);
+                    setParteAfterSave(true);
+                    setIsServiceModalOpen(true);
+                  }
+                : undefined
+            }
             onOpen={(job) => {
               setServiceForInSitu(job);
               setIsInSituModalOpen(true);
@@ -1402,6 +1412,7 @@ export default function App() {
           setServiceToEdit(null);
           setConvertingTicketId(null);
           setConvertingDeliveryId(null);
+          setParteAfterSave(false);
         }}
         serviceToEdit={serviceToEdit}
         technicians={technicians}
@@ -1411,6 +1422,11 @@ export default function App() {
           handleSaveService(job);
           if (convertingTicketId) setTicketStatus(convertingTicketId, 'convertido', job.id);
           if (convertingDeliveryId) updateDelivery(convertingDeliveryId, { status: 'planificada', serviceId: job.id });
+          if (parteAfterSave) {
+            setParteAfterSave(false);
+            setServiceForInSitu(job);
+            setIsInSituModalOpen(true);
+          }
         }}
       />
 
