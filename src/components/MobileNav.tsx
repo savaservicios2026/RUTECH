@@ -158,7 +158,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         </div>
       )}
 
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-900 border-t border-slate-800 pb-[env(safe-area-inset-bottom)]">
+      <nav data-mobile-nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-900 border-t border-slate-800 pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-5">
           {main.map((tab) => {
             const { icon: Icon } = TABS[tab];
