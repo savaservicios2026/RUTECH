@@ -35,28 +35,77 @@ export function zoneCenter(zone?: string): { lat: number; lng: number } {
   return { lat: z[1], lng: z[2] };
 }
 
-/** Address to coordinates with OpenStreetMap; null when it cannot be found or there is no connection. */
-async function geocodeOnce(q: string): Promise<{ lat: number; lng: number } | null> {
+type GeoHit = { lat: number; lng: number; approximate: boolean };
+
+// Where the company works (Galicia, Asturias, León): results here are preferred
+const VIEWBOX = '-9.4,43.9,-4.4,41.8';
+// Result kinds that only give the town or area, not the exact place
+const AREA_TYPES = ['city', 'town', 'village', 'municipality', 'county', 'state', 'province', 'region', 'postcode', 'district', 'country'];
+
+/** Drops what map searches don't understand: floor, door, premises, "s/n", "C.P."... */
+export function cleanAddress(address: string): string {
+  return address
+    .replace(/[()]/g, ',')
+    .replace(/\s+-\s+/g, ', ')
+    .replace(/\b(bajo|baixo|entreplanta|local|piso|planta|puerta|porta|portal|nave|bloque|escalera|esc\.?)\s*(?!\d{5}\b)[\w\-/º]*/gi, '')
+    .replace(/\b\d+\s*[ºª]\s*[a-z]?\b/gi, '')
+    .replace(/\bs\s*\/\s*n\b/gi, '')
+    .replace(/\bc\.\s*p\.?|\bc\.?p\.(?=\s*\d)/gi, '')
+    .replace(/\bn[úu]mero\b|\bn[º°]/gi, '')
+    .replace(/\bn\.?(\d+)\b/gi, '$1')
+    .replace(/\s+,/g, ',')
+    .replace(/\s*,\s*(,\s*)+/g, ', ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^[\s,]+|[\s,]+$/g, '');
+}
+
+/** One search in OpenStreetMap (Nominatim). */
+async function nominatim(q: string): Promise<GeoHit | null> {
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=es&q=${encodeURIComponent(q)}`;
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=es,pt&viewbox=${VIEWBOX}&q=${encodeURIComponent(q)}`;
     const res = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!res.ok) return null;
     const data = await res.json();
     if (!Array.isArray(data) || !data[0]) return null;
-    return { lat: Number(data[0].lat), lng: Number(data[0].lon) };
+    return { lat: Number(data[0].lat), lng: Number(data[0].lon), approximate: AREA_TYPES.includes(data[0].addresstype) };
   } catch {
     return null;
   }
 }
 
-/** Finds an address on the map; if the full text isn't found, tries it without the first parts (e.g. the gym's name). */
-export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number; approximate: boolean } | null> {
-  const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
-  const tries = [address, ...parts.slice(1).map((_, i) => parts.slice(i + 1).join(', '))].slice(0, 4);
-  for (const [i, q] of tries.entries()) {
-    const found = await geocodeOnce(q);
-    // Found only without the first parts (street, number): it is the town, not the exact place
-    if (found) return { ...found, approximate: i > 0 };
+/** Second map search (Photon), more forgiving with misspelt or incomplete addresses. */
+async function photon(q: string): Promise<GeoHit | null> {
+  try {
+    const url = `https://photon.komoot.io/api/?limit=1&lat=42.9&lon=-8.0&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const f = (await res.json())?.features?.[0];
+    if (!f || !['ES', 'PT'].includes(f.properties?.countrycode)) return null;
+    const [lng, lat] = f.geometry.coordinates;
+    const type = f.properties.type;
+    return { lat, lng, approximate: !['house', 'street', 'other'].includes(type) };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Finds an address on the map. Tries the cleaned full address in two map services; if neither finds it,
+ * tries without the first parts (gym name, street) and finally the postal code: those only give the town (approximate).
+ */
+export async function geocodeAddress(address: string): Promise<GeoHit | null> {
+  const clean = cleanAddress(address) || address.trim();
+  const exact = (await nominatim(clean)) || (await photon(clean));
+  if (exact) return exact;
+  const parts = clean.split(',').map((p) => p.trim()).filter(Boolean);
+  for (const q of parts.slice(1).map((_, i) => parts.slice(i + 1).join(', ')).slice(0, 3)) {
+    const found = await nominatim(q);
+    if (found) return { ...found, approximate: true };
+  }
+  const cp = clean.match(/\b(15|27|32|36|33|24)\d{3}\b/)?.[0];
+  if (cp) {
+    const found = await nominatim(`${cp}, España`);
+    if (found) return { ...found, approximate: true };
   }
   return null;
 }

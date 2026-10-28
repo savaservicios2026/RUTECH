@@ -49,7 +49,7 @@ import { DeliveriesView } from './components/DeliveriesView';
 import { MobileNav } from './components/MobileNav';
 import { CompanyModal, DEFAULT_COMPANY } from './components/CompanyModal';
 import { DeliverySuggestion, deliveryStatus } from './utils/deliveries';
-import { zoneCenter } from './utils/tickets';
+import { zoneCenter, zoneFor, geocodeAddress } from './utils/tickets';
 import { 
   AppNotification, 
   sendWebPushNotification, 
@@ -427,6 +427,60 @@ export default function App() {
     const proposed = typeof next === 'function' ? next(prevExpanded) : next;
     setStoredServices(collapseTeams(prevExpanded, proposed, servicesRef.current));
   };
+
+  // Office: places only found roughly (or not at all) are searched again with the improved map search,
+  // a few at a time and once per device, and corrected when the exact place turns up
+  const relocateStarted = useRef(false);
+  useEffect(() => {
+    if (!canEdit || relocateStarted.current || !storedServices.length || !tickets.length || (window as any).claude?.use) return;
+    relocateStarted.current = true;
+    let tried: string[] = [];
+    try { tried = JSON.parse(localStorage.getItem('rutech_relocated_v1') || '[]'); } catch {}
+    const today = new Date().toISOString().slice(0, 10);
+    const needs = (l: { address?: string; lat?: number | null; approximate?: boolean }) =>
+      !!l.address?.trim() && !/^Ubicaci[oó]n GPS/i.test(l.address) && (l.lat == null || !!l.approximate);
+    const jobs: { key: string; address: string; apply: (p: { lat: number; lng: number; approximate: boolean }) => void }[] = [
+      ...storedServices
+        .filter((x) => x.kind !== 'nave' && x.status !== 'completado' && (!x.date || x.date >= today) && needs(x.location))
+        .map((x) => ({
+          key: `s:${x.id}`,
+          address: x.location.address,
+          apply: (p: { lat: number; lng: number; approximate: boolean }) =>
+            setServicesState((prev) => prev.map((y) => (y.id === x.id ? { ...y, location: { ...y.location, lat: p.lat, lng: p.lng, zone: zoneFor(p.lat, p.lng), approximate: false } } : y))),
+        })),
+      ...deliveries
+        .filter((d) => d.status !== 'entregada' && needs(d.location))
+        .map((d) => ({
+          key: `d:${d.id}`,
+          address: d.location.address,
+          apply: (p: { lat: number; lng: number; approximate: boolean }) =>
+            updateDelivery(d.id, { location: { ...d.location, lat: p.lat, lng: p.lng, zone: zoneFor(p.lat, p.lng), approximate: false } }),
+        })),
+      ...tickets
+        .filter((t) => t.status !== 'cerrado' && needs(t.location))
+        .map((t) => ({
+          key: `t:${t.id}`,
+          address: t.location.address,
+          // A notice with no point at all also takes a rough one (the town) rather than nothing
+          apply: (p: { lat: number; lng: number; approximate: boolean }) =>
+            setTicketsState((prev) => prev.map((y) => (y.id === t.id ? { ...y, location: { ...y.location, lat: p.lat, lng: p.lng, zone: zoneFor(p.lat, p.lng) } } : y))),
+          rough: t.location.lat == null,
+        })),
+    ].filter((j) => !tried.includes(j.key));
+    if (!jobs.length) return;
+    let stop = false;
+    (async () => {
+      for (const j of jobs.slice(0, 15)) {
+        if (stop) return;
+        const found = await geocodeAddress(j.address);
+        if (found && (!found.approximate || (j as { rough?: boolean }).rough)) j.apply(found);
+        tried.push(j.key);
+        try { localStorage.setItem('rutech_relocated_v1', JSON.stringify(tried)); } catch {}
+        await new Promise((r) => setTimeout(r, 1200)); // the free map service allows about one search per second
+      }
+    })();
+    return () => { stop = true; };
+  }, [canEdit, storedServices.length, deliveries.length, tickets.length]);
 
   // Office: a customer who signs from their link (work order closed without signature) gets the
   // signature copied into the work order, and the office is told
