@@ -7,7 +7,7 @@ const escapeHtml = (text: string) =>
   text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
 export const formatLongDate = (date: string) =>
-  new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  !date ? 'Sin fecha' : new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
 /** The work order as a complete HTML page (logo, company data, job, result and signature). */
 // Photos of the work order (section "parte"), as image data URLs, oldest first

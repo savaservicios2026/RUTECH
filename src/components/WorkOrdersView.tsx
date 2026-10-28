@@ -77,7 +77,7 @@ export const WorkOrdersView: React.FC<WorkOrdersViewProps> = ({
   const openJobs = useMemo(() => {
     const q = pickSearch.trim().toLowerCase();
     const today = new Date().toISOString().slice(0, 10);
-    const dist = (d: string) => Math.abs(new Date(`${d}T12:00:00`).getTime() - new Date(`${today}T12:00:00`).getTime());
+    const dist = (d: string) => !d ? Infinity : Math.abs(new Date(`${d}T12:00:00`).getTime() - new Date(`${today}T12:00:00`).getTime());
     return services
       .filter((s) => s.kind !== 'nave' && s.status !== 'completado')
       .filter((s) => !onlyTechnicianId || teamIds(s).includes(onlyTechnicianId))

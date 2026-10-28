@@ -18,6 +18,7 @@ import {
 import { formatLongDate, printWorkOrder, downloadWorkOrderPdf, sendWorkOrderToCustomer } from '../utils/workOrder';
 import { baseIdOf } from '../utils/teams';
 import { AttachmentsBox } from './AttachmentsBox';
+import { DictateButton } from './DictateButton';
 
 interface InSituModalProps {
   isOpen: boolean;
@@ -272,7 +273,10 @@ export const InSituModal: React.FC<InSituModalProps> = ({
 
           {/* Observations */}
           <div>
-            <label className="block font-bold text-slate-700 text-[11px] mb-1">Observaciones</label>
+            <div className="flex items-end justify-between gap-2 mb-1">
+              <label className="block font-bold text-slate-700 text-[11px]">Observaciones</label>
+              <DictateButton onText={(said) => setTechnicalNotes((prev) => (prev.trim() ? `${prev.trimEnd()}${/[.!?]$/.test(prev.trimEnd()) ? '' : '.'} ${said}` : said))} />
+            </div>
             <textarea
               rows={4}
               value={technicalNotes}
