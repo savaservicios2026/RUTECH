@@ -1345,6 +1345,7 @@ export default function App() {
             technicians={routeTechs}
             services={routeServices}
             selectedDate={selectedDate}
+            onChangeDate={setSelectedDate}
             onUpdateJobStatus={handleUpdateJobStatus}
             initialTechnicianId={access.role === 'tecnico' ? access.technicianId : undefined}
             summaries={summaries}

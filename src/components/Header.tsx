@@ -37,7 +37,7 @@ const isoShift = (date: string, days: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-const MobileDayBar: React.FC<{ date: string; onChange: (d: string) => void }> = ({ date, onChange }) => {
+export const DayBar: React.FC<{ date: string; onChange: (d: string) => void }> = ({ date, onChange }) => {
   const now = new Date();
   const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const label = new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -137,7 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
         </div>
-        {DATED_TABS.includes(currentTab) && <MobileDayBar date={selectedDate} onChange={setSelectedDate} />}
+        {DATED_TABS.includes(currentTab) && currentTab !== 'worker' && <DayBar date={selectedDate} onChange={setSelectedDate} />}
       </div>
 
       {/* Top Bar */}

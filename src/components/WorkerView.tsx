@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { DayBar } from './Header';
 import { Technician, ServiceJob, JobStatus, Van, vanLabel, TechnicianRouteSummary } from '../types';
 import { LunchEditor, LunchStop, lunchSlot } from './LunchEditor';
 import { 
@@ -31,6 +32,7 @@ interface WorkerViewProps {
   technicians: Technician[];
   services: ServiceJob[];
   selectedDate: string;
+  onChangeDate?: (date: string) => void;
   onUpdateJobStatus: (serviceId: string, status: JobStatus, notes?: string) => void;
   onSelectTechnician?: (techId: string) => void;
   onOpenInSituModal?: (service: ServiceJob) => void;
@@ -51,6 +53,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
   technicians,
   services,
   selectedDate,
+  onChangeDate,
   onUpdateJobStatus,
   onOpenInSituModal,
   initialTechnicianId,
@@ -145,6 +148,7 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
     <div className="w-full max-w-2xl mx-auto space-y-4">
       {/* Top Banner: Mode Explanation & Worker Selector */}
       <div className="bg-slate-900 text-white p-3 sm:p-4 rounded-2xl shadow-lg border border-slate-800">
+        {onChangeDate && <div className="-mx-3 mb-2"><DayBar date={selectedDate} onChange={onChangeDate} /></div>}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
           <div className="hidden sm:flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md">
