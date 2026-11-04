@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Technician, ServiceJob, JobStatus, Van, vanLabel, TechnicianRouteSummary } from '../types';
 import { LunchEditor, LunchStop, lunchSlot } from './LunchEditor';
 import { 
@@ -87,6 +87,13 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
   const isDone = (s: ServiceJob) => s.status === 'completado';
   const techJobs = allTechJobs.filter((s) => !isDone(s));
   const doneJobs = allTechJobs.filter(isDone);
+
+  // On past days the finished jobs are what the technician comes back for, so they start unfolded
+  const now = new Date();
+  const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const isToday = selectedDate === todayLocal;
+  const [showDone, setShowDone] = useState(selectedDate < todayLocal);
+  useEffect(() => setShowDone(selectedDate < todayLocal), [selectedDate, todayLocal]);
 
   const completedCount = doneJobs.length;
   const progressPercent = allTechJobs.length > 0 ? Math.round((completedCount / allTechJobs.length) * 100) : 0;
@@ -341,13 +348,32 @@ export const WorkerView: React.FC<WorkerViewProps> = ({
         )}
 
         {doneJobs.length > 0 && (
-          <button
-            onClick={onOpenWorkOrders}
-            className="w-full p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center justify-between cursor-pointer"
-          >
-            <span>✅ {doneJobs.length} {doneJobs.length === 1 ? 'trabajo terminado' : 'trabajos terminados'} hoy</span>
-            <span className="underline">Ver en Partes de trabajo</span>
-          </button>
+          <div className="rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs">
+            <div className="p-3 flex items-center justify-between gap-2">
+              <button onClick={() => setShowDone((v) => !v)} className="font-semibold flex items-center gap-1 cursor-pointer text-left">
+                <span>✅ {doneJobs.length} {doneJobs.length === 1 ? 'trabajo terminado' : 'trabajos terminados'} {isToday ? 'hoy' : 'este día'}</span>
+                <span className="underline">{showDone ? 'ocultar' : 'ver y editar partes'}</span>
+              </button>
+              <button onClick={onOpenWorkOrders} className="underline cursor-pointer shrink-0">Ir a Partes</button>
+            </div>
+            {showDone && (
+              <ul className="border-t border-emerald-200 divide-y divide-emerald-100">
+                {doneJobs.map((job) => (
+                  <li key={job.id} className="p-3 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-800 truncate">{job.customerName}</div>
+                      <div className="text-slate-600 truncate">{job.title}</div>
+                    </div>
+                    {onOpenInSituModal && (
+                      <button onClick={() => onOpenInSituModal(job)} className="shrink-0 px-3 py-2 rounded-lg bg-blue-600 text-white font-bold cursor-pointer">
+                        📝 Ver / editar parte
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
 
         {/* Empty state */}
