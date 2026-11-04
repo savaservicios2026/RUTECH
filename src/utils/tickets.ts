@@ -206,3 +206,6 @@ export async function loadTicketMedia(ticketId: string): Promise<TicketMedia[]> 
   const snap = await getDocs(query(collection(db, 'ticketMedia'), where('ticketId', '==', ticketId)));
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<TicketMedia, 'id'>) }));
 }
+
+// A breakdown nobody in the office has looked at yet: no review mark and nothing done with it
+export const isNewTicket = (t: Ticket) => t.status === 'nuevo' && !t.reviewedAt && !t.supplierSend && !(t.timeline && t.timeline.length);

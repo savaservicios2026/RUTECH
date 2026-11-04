@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertOctagon, Plus, Link2, MapPin, Phone, Wrench, Image as ImageIcon, Route, CheckCircle2, XCircle, RotateCcw, Loader2, Pencil } from 'lucide-react';
 import { ServiceJob, Technician, Ticket, TicketMedia, TicketStatus, PriorityType } from '../types';
 import { calculateDistanceKm } from '../utils/geo';
-import { loadTicketMedia } from '../utils/tickets';
+import { loadTicketMedia, isNewTicket } from '../utils/tickets';
 import { TicketForm } from './TicketForm';
 import { SupplierPanel } from './SupplierPanel';
 import { CustomerRequest } from './CustomerRequest';
@@ -31,9 +31,10 @@ const URGENCY_STYLE: Record<PriorityType, string> = {
 };
 
 // How close a ticket must be to a planned visit to suggest fitting it into that route
-type Stage = 'sin' | 'tramite' | 'resuelta';
+type Stage = 'nueva' | 'sin' | 'tramite' | 'resuelta';
 const STAGES: [Stage, string, string, string][] = [
-  ['sin', '🆕 Sin gestionar', 'bg-rose-600 text-white', 'bg-rose-50 text-rose-900 border border-rose-200'],
+  ['nueva', '🔔 Nuevas', 'bg-blue-600 text-white', 'bg-blue-50 text-blue-900 border border-blue-200'],
+  ['sin', '📋 Sin gestionar', 'bg-rose-600 text-white', 'bg-rose-50 text-rose-900 border border-rose-200'],
   ['tramite', '⏳ En trámite', 'bg-amber-500 text-white', 'bg-amber-50 text-amber-900 border border-amber-200'],
   ['resuelta', '✓ Resueltas', 'bg-emerald-600 text-white', 'bg-emerald-50 text-emerald-900 border border-emerald-200'],
 ];
@@ -92,7 +93,7 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
   userEmail,
   onEditTicket,
 }) => {
-  const [filter, setFilter] = useState<Stage>('sin');
+  const [filter, setFilter] = useState<Stage>(() => (tickets.some((t) => isNewTicket(t)) ? 'nueva' : 'sin'));
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Ticket | null>(null);
   const today = new Date().toISOString().split('T')[0];
@@ -104,11 +105,14 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
       const job = services.find((s) => s.id === t.serviceId);
       return job?.status === 'completado' && job.inSituReport?.outcome !== 'volver' ? 'resuelta' : 'tramite';
     }
-    return t.supplierSend && t.supplierSend.status !== 'error' ? 'tramite' : 'sin';
+    if (t.supplierSend && t.supplierSend.status !== 'error') return 'tramite';
+    return isNewTicket(t) ? 'nueva' : 'sin';
   };
 
+  const markReviewed = (t: Ticket) => onUpdateTicket(t.id, () => ({ reviewedAt: new Date().toISOString() }));
+
   const counts = useMemo(() => {
-    const c: Record<Stage, number> = { sin: 0, tramite: 0, resuelta: 0 };
+    const c: Record<Stage, number> = { nueva: 0, sin: 0, tramite: 0, resuelta: 0 };
     tickets.forEach((t) => c[stageOf(t)]++);
     return c;
   }, [tickets, services]);
@@ -167,10 +171,10 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
             </div>
           )}
         </div>
-        <div className="grid grid-cols-3 gap-2 text-xs sm:text-sm font-bold">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm font-bold">
           {STAGES.map(([key, label, on, off]) => (
             <button key={key} onClick={() => setFilter(key)} className={`py-2.5 px-1 rounded-xl cursor-pointer ${filter === key ? on : off}`}>
-              {label} ({counts[key]})
+              {label} ({counts[key]}){key === 'nueva' && counts.nueva > 0 && filter !== 'nueva' ? ' ●' : ''}
             </button>
           ))}
         </div>
@@ -256,6 +260,11 @@ export const TicketsView: React.FC<TicketsViewProps> = ({
 
               {canEdit && (
                 <div className="flex gap-2 flex-wrap pt-1">
+                  {stageOf(t) === 'nueva' && (
+                    <button onClick={() => markReviewed(t)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold">
+                      <CheckCircle2 className="w-4 h-4" />Vista, pasar a sin gestionar
+                    </button>
+                  )}
                   {t.status === 'nuevo' && (
                     <>
                       <button onClick={() => onCreateService(t)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold">

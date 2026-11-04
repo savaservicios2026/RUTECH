@@ -303,6 +303,7 @@ export interface Ticket {
   };
   // Follow-up of everything done with this breakdown, oldest first
   timeline?: TicketEvent[];
+  reviewedAt?: string; // when the office first looked at it; until then it shows under "Nuevas"
 }
 
 export interface TicketEvent {

@@ -49,7 +49,7 @@ import { DeliveriesView } from './components/DeliveriesView';
 import { MobileNav } from './components/MobileNav';
 import { CompanyModal, DEFAULT_COMPANY } from './components/CompanyModal';
 import { DeliverySuggestion, deliveryStatus } from './utils/deliveries';
-import { zoneCenter, zoneFor, geocodeAddress } from './utils/tickets';
+import { zoneCenter, zoneFor, geocodeAddress, isNewTicket } from './utils/tickets';
 import { 
   AppNotification, 
   sendWebPushNotification, 
@@ -1166,7 +1166,7 @@ export default function App() {
         isOptimizing={isOptimizing}
         canEdit={canEdit}
         vanWarningsCount={countVanWarnings(vans)}
-        newTicketsCount={tickets.filter((t) => t.status === 'nuevo' && (!t.supplierSend || t.supplierSend.status === 'error')).length}
+        newTicketsCount={tickets.filter(isNewTicket).length}
         pendingDeliveriesCount={deliveries.filter((d) => deliveryStatus(d, services) === 'pendiente').length}
       />
 
@@ -1438,7 +1438,7 @@ export default function App() {
         setCurrentTab={setCurrentTab}
         isTechnician={access.role === 'tecnico'}
         canEdit={canEdit}
-        newTicketsCount={tickets.filter((t) => t.status === 'nuevo' && (!t.supplierSend || t.supplierSend.status === 'error')).length}
+        newTicketsCount={tickets.filter(isNewTicket).length}
         pendingDeliveriesCount={deliveries.filter((d) => deliveryStatus(d, services) === 'pendiente').length}
         vanWarningsCount={countVanWarnings(vans)}
         unassignedCount={metrics.unassignedJobs}
