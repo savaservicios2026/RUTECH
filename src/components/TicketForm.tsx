@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Camera, MapPin, Send, X, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { PriorityType, Ticket } from '../types';
-import { notifyNewTicket } from '../utils/whatsapp';
 import { createTicket, geocodeAddress, MAX_MEDIA_FILES, prepareMedia, zoneFor } from '../utils/tickets';
 
 const URGENCY_OPTIONS: { value: PriorityType; label: string; hint: string; tone: string }[] = [
@@ -145,7 +144,6 @@ export const TicketForm: React.FC<TicketFormProps> = ({ source, onCreated, onCan
         },
         media
       );
-      notifyNewTicket(ticket);
       setCreated(ticket);
       onCreated?.(ticket);
     } catch {

@@ -35,6 +35,7 @@ import { ExportModal } from './components/ExportModal';
 import { AnalyticsView } from './components/AnalyticsView';
 import { NotificationsModal } from './components/NotificationsModal';
 import { useCloudCollection } from './utils/cloudSync';
+import { notifyNewTickets, WhatsappSettings } from './utils/whatsapp';
 import { expandTeams, collapseTeams, teamIds, baseIdOf } from './utils/teams';
 import { placeFlexibleJob } from './utils/placement';
 import { useAccess, READ_ONLY_MESSAGE, TECHNICIAN_EDITABLE_FIELDS } from './utils/access';
@@ -199,6 +200,11 @@ export default function App() {
   useCloudCollection('settings', settings, setSettingsState);
   const company = settings.find((x) => x.id === 'company') || DEFAULT_COMPANY;
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  // WhatsApp notice for each new breakdown, sent from an open office app
+  const whatsapp = settings.find((x) => (x.id as string) === 'whatsapp') as unknown as WhatsappSettings | undefined;
+  useEffect(() => {
+    if (canEdit) notifyNewTickets(tickets, whatsapp);
+  }, [canEdit, tickets, whatsapp]);
 
   // Material deliveries, fitted into the technicians' planned routes
   const [deliveries, setDeliveriesState] = useState<Delivery[]>([]);
