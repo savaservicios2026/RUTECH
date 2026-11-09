@@ -356,7 +356,7 @@ export interface CompanyInfo {
 export interface Attachment {
   id: string;
   serviceId: string;
-  section: 'servicio' | 'parte';
+  section: 'servicio' | 'parte' | 'documento'; // documento: supplier papers edited/signed inside the work order
   name: string;
   type: string; // MIME type
   dataUrl: string;

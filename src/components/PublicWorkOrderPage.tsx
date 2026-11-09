@@ -159,7 +159,7 @@ export const PublicWorkOrderPage: React.FC = () => {
                 onClick={async () => {
                   setBusy(true);
                   try {
-                    await downloadWorkOrderPdf(data.job, data.technicianNames, data.company, data.photos || []);
+                    await downloadWorkOrderPdf(data.job, data.technicianNames, data.company, data.photos || [], data.documents || []);
                   } finally {
                     setBusy(false);
                   }
@@ -181,7 +181,7 @@ export const PublicWorkOrderPage: React.FC = () => {
             </div>
             <iframe
               title="Parte de trabajo"
-              srcDoc={workOrderHtml(data.job, data.technicianNames, data.company, false, data.photos || [])}
+              srcDoc={workOrderHtml(data.job, data.technicianNames, data.company, false, data.photos || [], data.documents || [])}
               className="w-full bg-white rounded-2xl shadow-2xl"
               style={{ height: '1150px' }}
               onLoad={(e) => {

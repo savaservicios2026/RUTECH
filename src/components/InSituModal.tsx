@@ -18,6 +18,7 @@ import {
 import { formatLongDate, printWorkOrder, downloadWorkOrderPdf, sendWorkOrderToCustomer } from '../utils/workOrder';
 import { baseIdOf } from '../utils/teams';
 import { AttachmentsBox } from './AttachmentsBox';
+import { DocumentsBox } from './DocumentsBox';
 import { DictateButton } from './DictateButton';
 
 interface InSituModalProps {
@@ -286,6 +287,9 @@ export const InSituModal: React.FC<InSituModalProps> = ({
             />
             <div className="mt-2">
               <AttachmentsBox serviceId={baseIdOf(service.id)} section="parte" />
+            </div>
+            <div className="mt-2">
+              <DocumentsBox serviceId={baseIdOf(service.id)} />
             </div>
           </div>
 
