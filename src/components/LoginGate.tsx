@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { onAuthStateChanged, signInWithEmailAndPassword, User } from 'firebase/auth';
+import { onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, User } from 'firebase/auth';
 import { LogIn, LogOut } from 'lucide-react';
 import logoSava from '../assets/logo-sava-dark.png?inline';
 import { getFirebaseAuth, getRole, isFirebaseEnabled, signOutUser } from '../utils/firebase';
@@ -19,6 +19,7 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState<string | null>(null);
   const [access, setAccess] = useState<Access | 'none' | null>(null);
 
   useEffect(() => {
@@ -92,6 +93,22 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
     }
   };
 
+  const handleReset = async () => {
+    const mail = email.trim();
+    setError(null);
+    setInfo(null);
+    if (!mail) {
+      setError('Escribe primero tu email arriba y vuelve a pulsar «¿Olvidaste la contraseña?».');
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(getFirebaseAuth()!, mail);
+    } catch {
+      /* no revelamos si el email existe */
+    }
+    setInfo(`Si ${mail} tiene usuario, te hemos enviado un correo para poner una contraseña nueva. Mira también en spam.`);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1f4f94] via-[#0d2650] to-[#040c1f] flex items-center justify-center p-4">
       <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white/5 border border-white/10 backdrop-blur rounded-2xl p-6 space-y-4 shadow-2xl">
@@ -119,9 +136,14 @@ export const LoginGate: React.FC<{ children: React.ReactNode }> = ({ children })
                 className="mt-1 w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </label>
             {error && <p className="text-sm text-red-400">{error}</p>}
+            {info && <p className="text-sm text-emerald-300">{info}</p>}
             <button type="submit" disabled={busy}
               className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#5a5ea8] hover:bg-[#686bac] disabled:opacity-60 text-white font-semibold py-2.5">
               <LogIn className="w-4 h-4" /> {busy ? 'Entrando…' : 'Entrar'}
+            </button>
+            <button type="button" onClick={handleReset}
+              className="w-full text-center text-sm text-slate-300 underline underline-offset-2 hover:text-white py-1">
+              ¿Olvidaste la contraseña?
             </button>
           </>
         )}
