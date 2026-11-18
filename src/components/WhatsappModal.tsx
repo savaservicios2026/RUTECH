@@ -24,7 +24,7 @@ export const WhatsappModal: React.FC<Props> = ({ isOpen, settings, technicians, 
   useEffect(() => {
     if (!isOpen) return;
     const r: Record<string, WhatsappRecipient> = {};
-    for (const t of technicians) r[t.id] = recipientFor(settings, t);
+    for (const t of technicians) r[t.id] = recipientFor(settings, t, technicians);
     setRec(r);
   }, [isOpen, settings, technicians]);
   if (!isOpen) return null;
@@ -54,7 +54,7 @@ export const WhatsappModal: React.FC<Props> = ({ isOpen, settings, technicians, 
         </div>
         <div className="p-4 space-y-4 overflow-y-auto">
           <p className="text-xs text-slate-500">
-            Cuando se crea un servicio, una entrega o una avería, cada técnico marcado recibe un WhatsApp. Cada uno necesita su clave de CallMeBot, que se consigue desde su propio móvil.
+            Cuando se crea un servicio, una entrega o una avería, cada técnico marcado recibe un WhatsApp. Los servicios solo le llegan si está asignado a él. Cada uno necesita su clave de CallMeBot, que se consigue desde su propio móvil.
           </p>
           {technicians.map((t) => {
             const r = rec[t.id] || {};

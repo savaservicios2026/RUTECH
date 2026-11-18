@@ -7,7 +7,7 @@ import { SYNC_VERSION } from './cloudSync';
 // (only people with a role can read it), so notices go out from the office's open app.
 //  - phone/apikey: the office number, told about every new breakdown (Pablo, 2026-11-05)
 //  - recipients: one entry per technician, with what they want to hear about (Pablo, 2026-11-18:
-//    new services to Pablo; new services, deliveries and breakdowns to Sergio)
+//    each technician hears about new services assigned to them; Sergio also deliveries and breakdowns)
 export type NoticeKind = 'services' | 'deliveries' | 'tickets';
 export type WhatsappRecipient = { apikey?: string; phone?: string; provider?: 'callmebot' | 'textmebot' } & Partial<Record<NoticeKind, boolean>>;
 export type WhatsappSettings = {
@@ -19,16 +19,12 @@ export type WhatsappSettings = {
   recipients?: Record<string, WhatsappRecipient>; // by technician id
 };
 
-/** What each technician hears about until the office changes it */
+/** What each technician hears about until the office changes it. Services only ever go to
+ *  the technicians assigned to them (Pablo, 2026-11-18). */
 export function defaultPrefs(t: Pick<Technician, 'name'>): Partial<Record<NoticeKind, boolean>> {
   const n = t.name.trim().toLowerCase();
   if (n.startsWith('sergio')) return { services: true, deliveries: true, tickets: true };
-  if (n.startsWith('pablo')) return { services: true };
-  return {};
-}
-
-export function recipientFor(s: WhatsappSettings | undefined, t: Technician): WhatsappRecipient {
-  return { ...defaultPrefs(t), ...(s?.recipients?.[t.id] || {}) };
+  return { services: true };
 }
 
 /** Spanish numbers without prefix get +34 */
@@ -40,16 +36,28 @@ export function normalizePhone(p: string) {
   return d.length === 9 ? `+34${d}` : `+${d}`;
 }
 
-type Target = { key: string; phone: string; apikey: string; provider?: 'callmebot' | 'textmebot' };
+// The first notice (breakdowns) was set up with one number and key; when that number is a
+// technician's, that key is theirs too and their breakdown notices keep the old records.
+const legacyTech = (s: WhatsappSettings | undefined, techs: Technician[]) =>
+  s?.phone && s.apikey ? techs.find((t) => normalizePhone(t.phone) === normalizePhone(s.phone!)) : undefined;
+
+export function recipientFor(s: WhatsappSettings | undefined, t: Technician, techs: Technician[] = []): WhatsappRecipient {
+  const r: WhatsappRecipient = { ...defaultPrefs(t), ...(s?.recipients?.[t.id] || {}) };
+  if (!r.apikey && legacyTech(s, techs)?.id === t.id) r.apikey = s!.apikey;
+  return r;
+}
+
+type Target = { key: string; phone: string; apikey: string; provider?: 'callmebot' | 'textmebot'; legacy?: boolean };
 
 function targets(s: WhatsappSettings | undefined, techs: Technician[], kind: NoticeKind): Target[] {
   if (!s || s.enabled === false) return [];
   const out: Target[] = [];
-  if (kind === 'tickets' && s.apikey && s.phone) out.push({ key: 'office', phone: s.phone, apikey: s.apikey, provider: s.provider });
+  const legacy = legacyTech(s, techs);
+  if (kind === 'tickets' && s.apikey && s.phone && !legacy) out.push({ key: 'office', phone: s.phone, apikey: s.apikey, provider: s.provider, legacy: true });
   for (const t of techs) {
-    const r = recipientFor(s, t);
+    const r = recipientFor(s, t, techs);
     const phone = normalizePhone(r.phone || t.phone);
-    if (r[kind] && r.apikey && phone) out.push({ key: t.id, phone, apikey: r.apikey, provider: r.provider || s.provider });
+    if (r[kind] && r.apikey && phone) out.push({ key: t.id, phone, apikey: r.apikey, provider: r.provider || s.provider, legacy: legacy?.id === t.id });
   }
   return out;
 }
@@ -132,9 +140,9 @@ export function notifyNewTickets(tickets: Ticket[], s: WhatsappSettings | undefi
   for (const t of tickets) {
     if (!fresh(t.createdAt, TICKETS_SINCE)) continue;
     for (const r of to) {
-      // The office notice keeps its old record id so nothing already sent is repeated
-      const sentId = r.key === 'office' ? t.id : `tk_${t.id}_${r.key}`;
-      sendOnce(sentId, { number: t.number }, url(r, ticketLines(t)));
+      // The first notice keeps its old record id so nothing already sent is repeated
+      if (r.legacy) sendOnce(t.id, { number: t.number }, url(r, ticketLines(t)));
+      else if (fresh(t.createdAt, OTHERS_SINCE)) sendOnce(`tk_${t.id}_${r.key}`, { number: t.number }, url(r, ticketLines(t)));
     }
   }
 }
@@ -153,6 +161,7 @@ export function notifyNewServices(services: ServiceJob[], s: WhatsappSettings | 
   if (!to.length) return;
   for (const j of services) {
     if (j.kind === 'nave' || j.teamParentId || !fresh(j.createdAt, OTHERS_SINCE)) continue;
-    for (const r of to) sendOnce(`sv_${j.id}_${r.key}`, { number: j.code }, url(r, serviceLines(j, techs)));
+    const team = j.assignedTechnicianIds?.length ? j.assignedTechnicianIds : j.assignedTechnicianId ? [j.assignedTechnicianId] : [];
+    for (const r of to) if (team.includes(r.key)) sendOnce(`sv_${j.id}_${r.key}`, { number: j.code }, url(r, serviceLines(j, techs)));
   }
 }
