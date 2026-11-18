@@ -17,11 +17,12 @@ interface CompanyModalProps {
   company: CompanyInfo;
   onClose: () => void;
   onSave: (company: CompanyInfo) => void;
+  onOpenWhatsapp?: () => void;
 }
 
 const inputClass = 'w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500';
 
-export const CompanyModal: React.FC<CompanyModalProps> = ({ isOpen, company, onClose, onSave }) => {
+export const CompanyModal: React.FC<CompanyModalProps> = ({ isOpen, company, onClose, onSave, onOpenWhatsapp }) => {
   const [form, setForm] = useState(company);
   useEffect(() => {
     if (isOpen) setForm(company);
@@ -62,6 +63,9 @@ export const CompanyModal: React.FC<CompanyModalProps> = ({ isOpen, company, onC
           <p className="text-[11px] text-slate-500 -mt-2">Se envía al cliente por WhatsApp junto al parte firmado.</p>
         </div>
         <div className="p-3 border-t bg-slate-50 flex justify-end gap-2">
+          {onOpenWhatsapp && (
+            <button type="button" onClick={onOpenWhatsapp} className="mr-auto px-3 py-2 bg-emerald-600 text-white rounded-xl font-bold text-sm cursor-pointer">Avisos WhatsApp</button>
+          )}
           <button type="button" onClick={onClose} className="px-4 py-2 bg-slate-200 rounded-xl font-bold text-sm cursor-pointer">Cancelar</button>
           <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm cursor-pointer">Guardar</button>
         </div>

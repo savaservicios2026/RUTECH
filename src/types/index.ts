@@ -168,6 +168,7 @@ export interface ServiceJob {
   manualOrderByTech?: Record<string, number>; // position in each team member's own route
   vanId?: string | null; // van chosen for this job (does not depend on the technician)
   kind?: 'servicio' | 'nave'; // 'nave': a stop at the warehouse a technician adds to their day
+  createdAt?: string; // ISO, set when the office creates it (drives the WhatsApp notice)
   // Set on the in-memory copy shown in a team member's route: the record it belongs to
   teamParentId?: string;
   

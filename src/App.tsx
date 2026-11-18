@@ -35,7 +35,7 @@ import { ExportModal } from './components/ExportModal';
 import { AnalyticsView } from './components/AnalyticsView';
 import { NotificationsModal } from './components/NotificationsModal';
 import { useCloudCollection } from './utils/cloudSync';
-import { notifyNewTickets, WhatsappSettings } from './utils/whatsapp';
+import { notifyNewDeliveries, notifyNewServices, notifyNewTickets, WhatsappSettings } from './utils/whatsapp';
 import { expandTeams, collapseTeams, teamIds, baseIdOf } from './utils/teams';
 import { placeFlexibleJob } from './utils/placement';
 import { useAccess, READ_ONLY_MESSAGE, TECHNICIAN_EDITABLE_FIELDS } from './utils/access';
@@ -49,6 +49,7 @@ import { TicketsView } from './components/TicketsView';
 import { DeliveriesView } from './components/DeliveriesView';
 import { MobileNav } from './components/MobileNav';
 import { CompanyModal, DEFAULT_COMPANY } from './components/CompanyModal';
+import { WhatsappModal } from './components/WhatsappModal';
 import { DeliverySuggestion, deliveryStatus } from './utils/deliveries';
 import { zoneCenter, zoneFor, geocodeAddress, isNewTicket } from './utils/tickets';
 import { 
@@ -200,15 +201,22 @@ export default function App() {
   useCloudCollection('settings', settings, setSettingsState);
   const company = settings.find((x) => x.id === 'company') || DEFAULT_COMPANY;
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  const [isWhatsappModalOpen, setIsWhatsappModalOpen] = useState(false);
   // WhatsApp notice for each new breakdown, sent from an open office app
   const whatsapp = settings.find((x) => (x.id as string) === 'whatsapp') as unknown as WhatsappSettings | undefined;
   useEffect(() => {
-    if (canEdit) notifyNewTickets(tickets, whatsapp);
-  }, [canEdit, tickets, whatsapp]);
+    if (canEdit) notifyNewTickets(tickets, whatsapp, technicians);
+  }, [canEdit, tickets, whatsapp, technicians]);
+  useEffect(() => {
+    if (canEdit) notifyNewServices(storedServices, whatsapp, technicians);
+  }, [canEdit, storedServices, whatsapp, technicians]);
 
   // Material deliveries, fitted into the technicians' planned routes
   const [deliveries, setDeliveriesState] = useState<Delivery[]>([]);
   useCloudCollection('deliveries', deliveries, setDeliveriesState);
+  useEffect(() => {
+    if (canEdit) notifyNewDeliveries(deliveries, whatsapp, technicians);
+  }, [canEdit, deliveries, whatsapp, technicians]);
   const [convertingDeliveryId, setConvertingDeliveryId] = useState<string | null>(null);
 
   const updateDelivery = (id: string, patch: Partial<Delivery>) =>
@@ -923,8 +931,9 @@ export default function App() {
   };
 
   // 6. Save Service (create or edit); the form always edits the stored record
-  const handleSaveService = (jobToSave: ServiceJob) => {
-    const before = storedServices.find(s => s.id === jobToSave.id);
+  const handleSaveService = (job: ServiceJob) => {
+    const before = storedServices.find(s => s.id === job.id);
+    const jobToSave = before || job.createdAt ? job : { ...job, createdAt: new Date().toISOString() };
     let next = before
       ? storedServices.map(s => (s.id === jobToSave.id ? jobToSave : s))
       : [jobToSave, ...storedServices];
@@ -1469,10 +1478,25 @@ export default function App() {
         isOpen={isCompanyModalOpen}
         company={company}
         onClose={() => setIsCompanyModalOpen(false)}
+        onOpenWhatsapp={() => {
+          setIsCompanyModalOpen(false);
+          setIsWhatsappModalOpen(true);
+        }}
         onSave={(c) => {
           setSettingsState((prev) => [...prev.filter((x) => x.id !== 'company'), c]);
           setIsCompanyModalOpen(false);
           showToast('Datos de la empresa guardados');
+        }}
+      />
+      <WhatsappModal
+        isOpen={isWhatsappModalOpen}
+        settings={whatsapp}
+        technicians={technicians}
+        onClose={() => setIsWhatsappModalOpen(false)}
+        onSave={(w) => {
+          setSettingsState((prev) => [...prev.filter((x) => (x.id as string) !== 'whatsapp'), w as unknown as CompanyInfo]);
+          setIsWhatsappModalOpen(false);
+          showToast('Avisos por WhatsApp guardados');
         }}
       />
       <ServiceModal
