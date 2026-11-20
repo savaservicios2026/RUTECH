@@ -313,7 +313,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
                 </div>
 
                 {status !== 'entregada' && (
-                  <DeliveryChecklist delivery={d} canTick={canMarkReady} canEdit={canEdit} userEmail={userEmail} onChange={onChecklist} onMissing={onMarkMissing} />
+                  <DeliveryChecklist delivery={d} canTick={canMarkReady} canEdit={canEdit} userEmail={userEmail} onChange={onChecklist} onMissing={onMarkMissing} onReady={(x) => onMarkReady(x, true)} />
                 )}
 
                 <div className="space-y-1 text-xs text-slate-700">
@@ -363,7 +363,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
                     )}
                   </div>
                 ) : (
-                  status !== 'entregada' && canMarkReady && (
+                  status !== 'entregada' && canMarkReady && !d.checklist?.items?.length && (
                     <button onClick={() => { setMissingText(''); setMissingFor(d.id); }} className="w-full py-2 bg-white border border-rose-300 text-rose-700 hover:bg-rose-50 rounded-lg font-bold text-xs cursor-pointer">⚠️ Falta material</button>
                   )
                 )}
@@ -391,7 +391,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
                       </div>
                     </div>
                   ) : (
-                    canMarkReady && (
+                    canMarkReady && !d.checklist?.items?.length && (
                       <button onClick={() => onMarkReady(d, true)} className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center justify-center gap-1.5 cursor-pointer">
                         <CheckCircle2 className="w-4 h-4" />Pedido listo para salir
                       </button>

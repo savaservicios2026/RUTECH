@@ -11,6 +11,7 @@ interface Props {
   userEmail?: string;
   onChange: (delivery: Delivery, checklist: Checklist) => void;
   onMissing: (delivery: Delivery, items: string) => void;
+  onReady: (delivery: Delivery) => void;
 }
 
 const isPdf = (a: Attachment) => a.type === 'application/pdf' || /\.pdf$/i.test(a.name);
@@ -25,7 +26,7 @@ const missingLabel = (i: DeliveryChecklistItem) => {
 
 /** The articles of the quote attached to a delivery, to tick while loading the van (Pablo, 2026-11-20).
  *  The list is read from the first PDF attached; what is left unticked can be sent as missing material. */
-export const DeliveryChecklist: React.FC<Props> = ({ delivery, canTick, canEdit, userEmail, onChange, onMissing }) => {
+export const DeliveryChecklist: React.FC<Props> = ({ delivery, canTick, canEdit, userEmail, onChange, onMissing, onReady }) => {
   const [pdfs, setPdfs] = useState<Attachment[]>([]);
   const [reading, setReading] = useState(false);
   const [newLine, setNewLine] = useState('');
@@ -131,12 +132,18 @@ export const DeliveryChecklist: React.FC<Props> = ({ delivery, canTick, canEdit,
           <button type="submit" className="px-2 py-1.5 bg-slate-800 text-white rounded-lg cursor-pointer" title="Añadir"><Plus className="w-4 h-4" /></button>
         </form>
       )}
-      {canTick && doneUnits > 0 && pending.length > 0 && (
-        <div className="p-2 border-t border-slate-100">
+      {/* When done loading: the order goes out, or waits for what is missing (Pablo, 2026-11-20) */}
+      {canTick && items.length > 0 && !delivery.ready && (
+        <div className="p-2 border-t border-slate-100 space-y-1.5">
+          <button
+            onClick={() => onReady(delivery)}
+            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold cursor-pointer"
+          >✅ PEDIDO LISTO PARA SALIR{pending.length ? ` (faltan ${totalUnits - doneUnits} uds.)` : ''}</button>
           <button
             onClick={() => onMissing(delivery, pending.map(missingLabel).join('; '))}
-            className="w-full py-2 bg-rose-50 border border-rose-300 text-rose-800 rounded-lg font-bold cursor-pointer"
-          >⚠️ Avisar de lo que falta ({totalUnits - doneUnits} uds. sin cargar)</button>
+            disabled={!pending.length}
+            className="w-full py-2.5 bg-rose-50 border border-rose-300 text-rose-800 rounded-lg font-bold cursor-pointer disabled:opacity-40"
+          >⚠️ Pedido pendiente de material{pending.length ? ` (${totalUnits - doneUnits} uds.)` : ''}</button>
         </div>
       )}
     </div>

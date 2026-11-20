@@ -274,7 +274,7 @@ export default function App() {
   const markDeliveryReady = (d: Delivery, ready: boolean) => {
     if (access.role !== 'oficina' && access.role !== 'tecnico') return showToast(READ_ONLY_MESSAGE);
     if (!ready) return updateDelivery(d.id, { ready: null });
-    updateDelivery(d.id, { ready: { at: new Date().toISOString(), by: access.email || undefined } });
+    updateDelivery(d.id, { ready: { at: new Date().toISOString(), by: access.email || undefined }, missing: null });
     const job = d.serviceId ? services.find((x) => x.id === d.serviceId) : undefined;
     const name = d.facility || d.customerName;
     const when = job ? ` · sale el ${new Date(`${job.date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'numeric' })}` : '';
@@ -294,7 +294,7 @@ export default function App() {
       updateDelivery(d.id, { missing: null });
       return showToast('Material completo');
     }
-    updateDelivery(d.id, { missing: { items, at: new Date().toISOString(), by: access.email || undefined } });
+    updateDelivery(d.id, { missing: { items, at: new Date().toISOString(), by: access.email || undefined }, ready: null });
     notifyTechnician('all', '⚠️ Falta material', `${d.facility || d.customerName}: ${items}`);
     showToast('Anotado · avisado a la oficina');
   };
