@@ -348,7 +348,8 @@ export interface DeliveryChecklistItem {
   text: string;
   qty: number;
   code?: string;
-  ok?: boolean; // loaded
+  ok?: boolean; // every unit loaded
+  loaded?: number; // units loaded so far (Pablo, 2026-11-20: ticked one by one)
   by?: string;
   at?: string;
 }
