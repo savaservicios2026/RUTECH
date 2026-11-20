@@ -340,6 +340,21 @@ export interface Delivery {
   serviceId?: string | null;
   ready?: { at: string; by?: string } | null; // order prepared and ready to go out
   missing?: { items: string; at: string; by?: string } | null; // material a technician found missing (Pablo, 2026-11-20)
+  checklist?: DeliveryChecklist | null; // articles read from the attached quote, ticked while loading
+}
+
+export interface DeliveryChecklistItem {
+  id: string;
+  text: string;
+  qty: number;
+  code?: string;
+  ok?: boolean; // loaded
+  by?: string;
+  at?: string;
+}
+export interface DeliveryChecklist {
+  from?: string; // attachment the list was read from ('' when written by hand)
+  items: DeliveryChecklistItem[];
 }
 
 // Company details printed on work orders (Firestore settings/company)

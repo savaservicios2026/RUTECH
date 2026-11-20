@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Package, Plus, MapPin, Phone, Mail, MessageSquare, Route, CheckCircle2, Trash2, Edit, X, Loader2, CalendarDays, Navigation } from 'lucide-react';
-import { Delivery, DeliveryStatus, ServiceJob, Technician } from '../types';
+import { Delivery, DeliveryChecklist as Checklist, DeliveryStatus, ServiceJob, Technician } from '../types';
 import { DeliverySuggestion, deliveryStatus, suggestRoutesForDelivery, todayIso } from '../utils/deliveries';
 import { AttachmentsBox } from './AttachmentsBox';
+import { DeliveryChecklist } from './DeliveryChecklist';
 import { geocodeAddress, zoneCenter, zoneFor } from '../utils/tickets';
 
 interface DeliveriesViewProps {
@@ -18,6 +19,8 @@ interface DeliveriesViewProps {
   onMarkDelivered: (delivery: Delivery) => void;
   onMarkReady: (delivery: Delivery, ready: boolean) => void;
   onMarkMissing: (delivery: Delivery, items: string | null) => void;
+  onChecklist: (delivery: Delivery, checklist: Checklist) => void;
+  userEmail?: string;
   canMarkReady: boolean; // office and technicians
   showToast: (msg: string) => void;
 }
@@ -187,6 +190,8 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
   onMarkDelivered,
   onMarkReady,
   onMarkMissing,
+  onChecklist,
+  userEmail,
   canMarkReady,
 }) => {
   const [filter, setFilter] = useState<Tab>('preparar');
@@ -306,6 +311,10 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
                 <div className="text-xs">
                   <AttachmentsBox serviceId={d.id} section="servicio" title="Documentos" />
                 </div>
+
+                {status !== 'entregada' && (
+                  <DeliveryChecklist delivery={d} canTick={canMarkReady} canEdit={canEdit} userEmail={userEmail} onChange={onChecklist} onMissing={onMarkMissing} />
+                )}
 
                 <div className="space-y-1 text-xs text-slate-700">
                   <div className="flex items-start gap-1.5"><MapPin className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />{d.location.address}{d.location.approximate && <span className="text-amber-600">(ubicación aproximada)</span>}</div>

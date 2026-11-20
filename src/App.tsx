@@ -1313,6 +1313,11 @@ export default function App() {
             onMarkDelivered={markDeliveryDone}
             onMarkReady={markDeliveryReady}
             onMarkMissing={markDeliveryMissing}
+            onChecklist={(d, checklist) => {
+              if (access.role !== 'oficina' && access.role !== 'tecnico') return showToast(READ_ONLY_MESSAGE);
+              updateDelivery(d.id, { checklist });
+            }}
+            userEmail={access.email || undefined}
             canMarkReady={access.role === 'oficina' || access.role === 'tecnico'}
             showToast={showToast}
           />
