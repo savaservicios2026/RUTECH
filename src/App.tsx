@@ -294,9 +294,19 @@ export default function App() {
       updateDelivery(d.id, { missing: null });
       return showToast('Material completo');
     }
-    updateDelivery(d.id, { missing: { items, at: new Date().toISOString(), by: access.email || undefined }, ready: null });
+    // A new report keeps what the office already noted (ordered or not, notes)
+    const keep = d.missing ? { ...(d.missing.ordered != null ? { ordered: d.missing.ordered } : {}), ...(d.missing.notes ? { notes: d.missing.notes } : {}) } : {};
+    updateDelivery(d.id, { missing: { items, at: new Date().toISOString(), by: access.email || undefined, ...keep }, ready: null });
     notifyTechnician('all', '⚠️ Falta material', `${d.facility || d.customerName}: ${items}`);
     showToast('Anotado · avisado a la oficina');
+  };
+
+  // The office notes whether the missing material is ordered, or adds a remark (Pablo, 2026-11-20)
+  const updateDeliveryMissing = (d: Delivery, patch: { ordered?: boolean; note?: string }) => {
+    if (!canEdit) return showToast(READ_ONLY_MESSAGE);
+    if (!d.missing) return;
+    const notes = patch.note ? [...(d.missing.notes || []), { text: patch.note, at: new Date().toISOString(), by: access.email || undefined }] : d.missing.notes;
+    updateDelivery(d.id, { missing: { ...d.missing, ...(patch.ordered != null ? { ordered: patch.ordered } : {}), ...(notes ? { notes } : {}) } });
   };
 
   // Pre-fills a work order from a ticket; it is saved as a new service from the service form
@@ -1313,6 +1323,7 @@ export default function App() {
             onMarkDelivered={markDeliveryDone}
             onMarkReady={markDeliveryReady}
             onMarkMissing={markDeliveryMissing}
+            onMissingNote={updateDeliveryMissing}
             onChecklist={(d, checklist) => {
               if (access.role !== 'oficina' && access.role !== 'tecnico') return showToast(READ_ONLY_MESSAGE);
               updateDelivery(d.id, { checklist });

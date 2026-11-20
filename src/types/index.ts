@@ -339,7 +339,13 @@ export interface Delivery {
   status: DeliveryStatus;
   serviceId?: string | null;
   ready?: { at: string; by?: string } | null; // order prepared and ready to go out
-  missing?: { items: string; at: string; by?: string } | null; // material a technician found missing (Pablo, 2026-11-20)
+  missing?: {
+    items: string;
+    at: string;
+    by?: string;
+    ordered?: boolean; // the office says whether it is already ordered from the supplier
+    notes?: { text: string; at: string; by?: string }[]; // office notes on the missing material
+  } | null; // material a technician found missing (Pablo, 2026-11-20)
   checklist?: DeliveryChecklist | null; // articles read from the attached quote, ticked while loading
 }
 

@@ -19,6 +19,7 @@ interface DeliveriesViewProps {
   onMarkDelivered: (delivery: Delivery) => void;
   onMarkReady: (delivery: Delivery, ready: boolean) => void;
   onMarkMissing: (delivery: Delivery, items: string | null) => void;
+  onMissingNote: (delivery: Delivery, patch: { ordered?: boolean; note?: string }) => void;
   onChecklist: (delivery: Delivery, checklist: Checklist) => void;
   userEmail?: string;
   canMarkReady: boolean; // office and technicians
@@ -190,6 +191,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
   onMarkDelivered,
   onMarkReady,
   onMarkMissing,
+  onMissingNote,
   onChecklist,
   userEmail,
   canMarkReady,
@@ -200,6 +202,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [missingFor, setMissingFor] = useState<string | null>(null); // delivery whose missing material is being written
   const [missingText, setMissingText] = useState('');
+  const [noteDraft, setNoteDraft] = useState<Record<string, string>>({}); // office note being written, per delivery
 
   const withStatus = useMemo(
     () => deliveries.map((d) => ({ d, status: deliveryStatus(d, services) })),
@@ -355,6 +358,48 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
                         {d.missing.by ? ` · ${d.missing.by.split('@')[0]}` : ''}
                       </div>
                     </div>
+                    {/* Office: is it ordered? and notes (Pablo, 2026-11-20) */}
+                    {d.missing.ordered != null && (
+                      <div className={`inline-block px-2 py-0.5 rounded-full font-bold ${d.missing.ordered ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {d.missing.ordered ? '📦 Ya está pedido' : '⏳ Sin pedir todavía'}
+                      </div>
+                    )}
+                    {!!d.missing.notes?.length && (
+                      <ul className="space-y-1">
+                        {d.missing.notes.map((n, k) => (
+                          <li key={k} className="bg-white border border-rose-200 rounded-lg px-2 py-1.5 text-slate-800">
+                            {n.text}
+                            <span className="text-slate-400"> · {new Date(n.at).toLocaleString('es-ES', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}{n.by ? ` · ${n.by.split('@')[0]}` : ''}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {canEdit && (
+                      <div className="space-y-1.5">
+                        <div className="flex gap-1.5">
+                          <button onClick={() => onMissingNote(d, { ordered: true })} className={`flex-1 py-1.5 rounded-lg font-semibold cursor-pointer border ${d.missing.ordered === true ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-800 border-blue-200'}`}>📦 Pedido</button>
+                          <button onClick={() => onMissingNote(d, { ordered: false })} className={`flex-1 py-1.5 rounded-lg font-semibold cursor-pointer border ${d.missing.ordered === false ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-800 border-amber-200'}`}>⏳ Sin pedir</button>
+                        </div>
+                        <form
+                          className="flex gap-1.5"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const t = (noteDraft[d.id] || '').trim();
+                            if (!t) return;
+                            onMissingNote(d, { note: t });
+                            setNoteDraft((p) => ({ ...p, [d.id]: '' }));
+                          }}
+                        >
+                          <input
+                            value={noteDraft[d.id] || ''}
+                            onChange={(e) => setNoteDraft((p) => ({ ...p, [d.id]: e.target.value }))}
+                            placeholder="Anotación (ej. pedido a Bodytone, llega el martes)"
+                            className="flex-1 bg-white border border-rose-200 rounded-lg px-2 py-1.5 text-slate-800"
+                          />
+                          <button type="submit" className="px-2.5 py-1.5 bg-slate-800 text-white rounded-lg font-semibold cursor-pointer">Añadir</button>
+                        </form>
+                      </div>
+                    )}
                     {canMarkReady && (
                       <div className="flex flex-wrap gap-2">
                         <button onClick={() => { setMissingText(d.missing?.items || ''); setMissingFor(d.id); }} className="px-2.5 py-1.5 bg-white border border-rose-300 text-rose-800 rounded-lg font-semibold cursor-pointer">Cambiar</button>
