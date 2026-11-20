@@ -77,11 +77,27 @@ const EMPTY_FORM = {
 
 const inputClass = 'w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500';
 
+// Customers already used in deliveries, newest details first (Pablo, 2026-11-20: pick one and the form fills itself)
+type SavedCustomer = Pick<Delivery, 'facility' | 'customerName' | 'customerPhone' | 'customerEmail' | 'location'>;
+const norm = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+function savedCustomers(deliveries: Delivery[]): SavedCustomer[] {
+  const seen = new Map<string, SavedCustomer>();
+  [...deliveries]
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .forEach((d) => {
+      const key = `${norm(d.facility || '')}|${norm(d.customerName || '')}`;
+      if (key === '|' || seen.has(key)) return;
+      seen.set(key, { facility: d.facility, customerName: d.customerName, customerPhone: d.customerPhone, customerEmail: d.customerEmail, location: d.location });
+    });
+  return Array.from(seen.values()).sort((a, b) => (a.facility || a.customerName).localeCompare(b.facility || b.customerName, 'es'));
+}
+
 const DeliveryForm: React.FC<{
   initial: Delivery | null;
+  customers: SavedCustomer[];
   onCancel: () => void;
   onSave: (d: Delivery) => void;
-}> = ({ initial, onCancel, onSave }) => {
+}> = ({ initial, customers, onCancel, onSave }) => {
   // Fixed id so documents can be attached before the delivery is saved
   const [deliveryId] = useState(() => initial?.id || `ent-${Date.now()}`);
   const [form, setForm] = useState(() =>
@@ -101,6 +117,16 @@ const DeliveryForm: React.FC<{
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [picked, setPicked] = useState<SavedCustomer | null>(null);
+  const matches = search.trim()
+    ? customers.filter((c) => norm(`${c.facility || ''} ${c.customerName} ${c.customerPhone} ${c.location.address}`).includes(norm(search))).slice(0, 6)
+    : [];
+  const pick = (c: SavedCustomer) => {
+    setPicked(c);
+    setSearch('');
+    setForm({ ...form, facility: c.facility || '', customerName: c.customerName || '', customerPhone: c.customerPhone || '', customerEmail: c.customerEmail || '', address: c.location.address });
+  };
   const set = (k: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm({ ...form, [k]: k === 'estimatedMinutes' ? Number(e.target.value) : e.target.value });
 
@@ -110,7 +136,7 @@ const DeliveryForm: React.FC<{
     if (!form.address.trim()) return setError('Falta la dirección de entrega.');
     if (!form.items.trim()) return setError('Indica qué material hay que entregar.');
     setSaving(true);
-    let location = initial?.location;
+    let location = initial?.location || (picked && picked.location.address === form.address.trim() ? picked.location : undefined);
     if (!location || location.address !== form.address.trim()) {
       const found = await geocodeAddress(form.address.trim());
       const zone = found ? zoneFor(found.lat, found.lng) : 'A Coruña y Ferrol';
@@ -143,6 +169,26 @@ const DeliveryForm: React.FC<{
           <button type="button" onClick={onCancel} className="p-1 hover:bg-white/10 rounded-lg cursor-pointer"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-4 overflow-y-auto space-y-3 text-sm">
+          {!initial && customers.length > 0 && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+              <label className="block">
+                <span className="block text-xs font-bold text-blue-900 mb-1">Cliente guardado</span>
+                <input className={inputClass} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Busca por centro, nombre, teléfono o dirección" />
+              </label>
+              {matches.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
+                  {matches.map((c, k) => (
+                    <button key={k} type="button" onClick={() => pick(c)} className="w-full text-left px-3 py-2 hover:bg-blue-50 cursor-pointer">
+                      <div className="font-semibold text-slate-800">{c.facility || c.customerName}</div>
+                      <div className="text-xs text-slate-500">{[c.facility ? c.customerName : '', c.customerPhone, c.location.address].filter(Boolean).join(' · ')}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {search.trim() && !matches.length && <div className="text-xs text-slate-500">No hay ningún cliente guardado con ese nombre. Rellena los datos abajo y quedará guardado.</div>}
+              {picked && !search && <div className="text-xs text-blue-800">✓ Datos de {picked.facility || picked.customerName} puestos abajo; puedes cambiarlos.</div>}
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label><span className="block text-xs font-bold text-slate-600 mb-1">Centro</span><input className={inputClass} value={form.facility} onChange={set('facility')} placeholder="Gimnasio, club, concello…" /></label>
             <label><span className="block text-xs font-bold text-slate-600 mb-1">Nombre de contacto</span><input className={inputClass} value={form.customerName} onChange={set('customerName')} /></label>
@@ -533,6 +579,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
       {editing && (
         <DeliveryForm
           initial={editing === 'new' ? null : editing}
+          customers={savedCustomers(deliveries)}
           onCancel={() => setEditing(null)}
           onSave={(d) => {
             onSave(d);
