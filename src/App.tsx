@@ -287,6 +287,18 @@ export default function App() {
     showToast(crew.length ? 'Pedido listo · avisado al técnico y a la oficina' : 'Pedido listo · avisado a la oficina');
   };
 
+  // A technician notes material missing from an order; the office is told (Pablo, 2026-11-20)
+  const markDeliveryMissing = (d: Delivery, items: string | null) => {
+    if (access.role !== 'oficina' && access.role !== 'tecnico') return showToast(READ_ONLY_MESSAGE);
+    if (!items) {
+      updateDelivery(d.id, { missing: null });
+      return showToast('Material completo');
+    }
+    updateDelivery(d.id, { missing: { items, at: new Date().toISOString(), by: access.email || undefined } });
+    notifyTechnician('all', '⚠️ Falta material', `${d.facility || d.customerName}: ${items}`);
+    showToast('Anotado · avisado a la oficina');
+  };
+
   // Pre-fills a work order from a ticket; it is saved as a new service from the service form
   const openServiceFromTicket = (ticket: Ticket) => {
     const point =
@@ -1300,6 +1312,7 @@ export default function App() {
             onRemoveFromRoute={removeDeliveryFromRoute}
             onMarkDelivered={markDeliveryDone}
             onMarkReady={markDeliveryReady}
+            onMarkMissing={markDeliveryMissing}
             canMarkReady={access.role === 'oficina' || access.role === 'tecnico'}
             showToast={showToast}
           />

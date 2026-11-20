@@ -17,13 +17,15 @@ interface DeliveriesViewProps {
   onRemoveFromRoute: (delivery: Delivery) => void;
   onMarkDelivered: (delivery: Delivery) => void;
   onMarkReady: (delivery: Delivery, ready: boolean) => void;
+  onMarkMissing: (delivery: Delivery, items: string | null) => void;
   canMarkReady: boolean; // office and technicians
   showToast: (msg: string) => void;
 }
 
-type Tab = 'preparar' | 'listo' | 'asignada' | 'entregada';
+type Tab = 'preparar' | 'falta' | 'listo' | 'asignada' | 'entregada';
 const TABS: [Tab, string, string, string][] = [
   ['preparar', '📦 Pendientes de preparar', 'bg-amber-500 text-white', 'bg-amber-50 text-amber-900 border border-amber-200'],
+  ['falta', '⚠️ Falta material', 'bg-rose-600 text-white', 'bg-rose-50 text-rose-900 border border-rose-200'],
   ['listo', '✅ Listas para salir', 'bg-emerald-600 text-white', 'bg-emerald-50 text-emerald-900 border border-emerald-200'],
   ['asignada', '🚐 Asignadas', 'bg-blue-600 text-white', 'bg-blue-50 text-blue-900 border border-blue-200'],
   ['entregada', '✓ Entregadas', 'bg-slate-800 text-white', 'bg-slate-50 text-slate-700 border border-slate-200'],
@@ -184,12 +186,15 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
   onRemoveFromRoute,
   onMarkDelivered,
   onMarkReady,
+  onMarkMissing,
   canMarkReady,
 }) => {
   const [filter, setFilter] = useState<Tab>('preparar');
   const [day, setDay] = useState(''); // '' = every day
   const [editing, setEditing] = useState<Delivery | null | 'new'>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [missingFor, setMissingFor] = useState<string | null>(null); // delivery whose missing material is being written
+  const [missingText, setMissingText] = useState('');
 
   const withStatus = useMemo(
     () => deliveries.map((d) => ({ d, status: deliveryStatus(d, services) })),
@@ -198,10 +203,11 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
   const inTab = (tab: Tab, d: Delivery, status: DeliveryStatus) =>
     tab === 'entregada' ? status === 'entregada'
     : tab === 'asignada' ? status === 'planificada'
+    : tab === 'falta' ? status !== 'entregada' && !!d.missing
     : tab === 'listo' ? status !== 'entregada' && !!d.ready
-    : status !== 'entregada' && !d.ready;
+    : status !== 'entregada' && !d.ready && !d.missing;
   const counts = useMemo(() => {
-    const c: Record<Tab, number> = { preparar: 0, listo: 0, asignada: 0, entregada: 0 };
+    const c: Record<Tab, number> = { preparar: 0, falta: 0, listo: 0, asignada: 0, entregada: 0 };
     withStatus.forEach(({ d, status }) => TABS.forEach(([t]) => inTab(t, d, status) && c[t]++));
     return c;
   }, [withStatus]);
@@ -237,7 +243,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-bold">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs font-bold">
         {TABS.map(([t, label, on, off]) => (
           <button key={t} onClick={() => setFilter(t)} className={`py-2.5 px-2 rounded-xl cursor-pointer ${filter === t ? on : off}`}>
             {label} ({counts[t]})
@@ -255,7 +261,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
 
       {visible.length === 0 ? (
         <div className="bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-sm text-slate-500">
-          {day ? 'No hay entregas de este apartado ese día.' : filter === 'preparar' ? 'No hay pedidos pendientes de preparar.' : filter === 'listo' ? 'No hay pedidos listos para salir.' : filter === 'asignada' ? 'No hay entregas asignadas a una ruta.' : 'Todavía no hay entregas hechas.'}
+          {day ? 'No hay entregas de este apartado ese día.' : filter === 'preparar' ? 'No hay pedidos pendientes de preparar.' : filter === 'falta' ? 'No falta material en ningún pedido.' : filter === 'listo' ? 'No hay pedidos listos para salir.' : filter === 'asignada' ? 'No hay entregas asignadas a una ruta.' : 'Todavía no hay entregas hechas.'}
         </div>
       ) : (
         <div className="space-y-5">
@@ -306,6 +312,52 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
                   {d.customerPhone && <div className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-slate-400" />{d.customerPhone}</div>}
                   {d.customerEmail && <div className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-slate-400" />{d.customerEmail}</div>}
                 </div>
+
+                {/* Material missing from the order, noted by a technician or the office */}
+                {status !== 'entregada' && missingFor === d.id ? (
+                  <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-300 text-xs space-y-2">
+                    <div className="font-bold text-rose-900">⚠️ ¿Qué material falta?</div>
+                    <textarea
+                      className="w-full bg-white border border-rose-200 rounded-lg px-2.5 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                      rows={2}
+                      autoFocus
+                      value={missingText}
+                      onChange={(e) => setMissingText(e.target.value)}
+                      placeholder="Ej. faltan 2 discos de 10 kg"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        disabled={!missingText.trim()}
+                        onClick={() => {
+                          onMarkMissing(d, missingText.trim());
+                          setMissingFor(null);
+                        }}
+                        className="px-3 py-1.5 bg-rose-600 text-white rounded-lg font-bold cursor-pointer disabled:opacity-50"
+                      >Guardar</button>
+                      <button onClick={() => setMissingFor(null)} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-semibold cursor-pointer">Cancelar</button>
+                    </div>
+                  </div>
+                ) : status !== 'entregada' && d.missing ? (
+                  <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-300 text-xs text-rose-900 space-y-2">
+                    <div>
+                      <span className="font-bold">⚠️ Falta material:</span> {d.missing.items}
+                      <div className="text-rose-700 mt-0.5">
+                        {new Date(d.missing.at).toLocaleString('es-ES', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {d.missing.by ? ` · ${d.missing.by.split('@')[0]}` : ''}
+                      </div>
+                    </div>
+                    {canMarkReady && (
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={() => { setMissingText(d.missing?.items || ''); setMissingFor(d.id); }} className="px-2.5 py-1.5 bg-white border border-rose-300 text-rose-800 rounded-lg font-semibold cursor-pointer">Cambiar</button>
+                        <button onClick={() => onMarkMissing(d, null)} className="px-2.5 py-1.5 bg-emerald-600 text-white rounded-lg font-semibold cursor-pointer">Ya está completo</button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  status !== 'entregada' && canMarkReady && (
+                    <button onClick={() => { setMissingText(''); setMissingFor(d.id); }} className="w-full py-2 bg-white border border-rose-300 text-rose-700 hover:bg-rose-50 rounded-lg font-bold text-xs cursor-pointer">⚠️ Falta material</button>
+                  )
+                )}
 
                 {/* Order packed and ready to go out */}
                 {status !== 'entregada' &&

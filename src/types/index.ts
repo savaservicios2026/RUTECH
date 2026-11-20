@@ -339,6 +339,7 @@ export interface Delivery {
   status: DeliveryStatus;
   serviceId?: string | null;
   ready?: { at: string; by?: string } | null; // order prepared and ready to go out
+  missing?: { items: string; at: string; by?: string } | null; // material a technician found missing (Pablo, 2026-11-20)
 }
 
 // Company details printed on work orders (Firestore settings/company)
