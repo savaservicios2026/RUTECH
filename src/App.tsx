@@ -1280,6 +1280,12 @@ export default function App() {
               setIsInSituModalOpen(true);
             }}
             onScheduleReturn={openReturnVisit}
+            onNoticeSent={(job) => {
+              // Only the office's account may write services; technicians just get the WhatsApp opened
+              if (!canEdit) return;
+              const at = new Date().toISOString();
+              setServicesState((prev) => prev.map((s) => (s.id === job.id ? { ...s, dayBeforeNoticeAt: at } : s)));
+            }}
           />
         )}
 

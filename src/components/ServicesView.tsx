@@ -40,10 +40,58 @@ interface ServicesViewProps {
   onAssignJob: (serviceId: string, technicianId: string | null) => void;
   onOpenWorkOrder: (service: ServiceJob) => void;
   onScheduleReturn: (service: ServiceJob) => void;
+  onNoticeSent: (service: ServiceJob) => void;
 }
 
 const formatDay = (date: string) =>
   !date ? 'Sin fecha' : new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'numeric' });
+
+
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const tomorrowIso = () => { const d = new Date(); d.setDate(d.getDate() + 1); return isoDay(d); };
+const closedJob = (job: ServiceJob) => job.status === 'completado' || job.status === 'cancelado' || !!job.inSituReport?.outcome;
+
+// WhatsApp to the customer the day before the visit (Pablo, 2026-11-23): opens WhatsApp with the text ready
+export const dayBeforeWhatsapp = (job: ServiceJob) => {
+  const digits = (job.customerPhone || '').replace(/[^0-9]/g, '');
+  if (digits.length < 9) return null;
+  const intl = digits.length === 9 ? `34${digits}` : digits;
+  const day = new Date(`${job.date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'numeric' });
+  const when = job.date === tomorrowIso() ? `mañana, ${day},` : `el ${day}`;
+  const slot = job.timeSlot?.type && job.timeSlot.type !== 'cualquiera' && job.timeSlot.startHour && job.timeSlot.endHour
+    ? ` entre las ${job.timeSlot.startHour} y las ${job.timeSlot.endHour}`
+    : '';
+  const what = job.title ? ` para ${job.title.charAt(0).toLowerCase()}${job.title.slice(1)}` : '';
+  const text = [
+    `Hola${job.customerName ? ` ${job.customerName}` : ''}, le escribimos de SAVA Servicios Deportivos.`,
+    `Le confirmamos que ${when}${slot} pasará nuestro técnico${what}.`,
+    'Si no le viene bien o tiene cualquier duda, puede responder a este mensaje o llamarnos al 604 015 066.',
+    'Un saludo.',
+  ].join('\n\n');
+  return `https://wa.me/${intl}?text=${encodeURIComponent(text)}`;
+};
+
+
+const NoticeButton: React.FC<{ job: ServiceJob; onSent: (job: ServiceJob) => void }> = ({ job, onSent }) => {
+  const url = dayBeforeWhatsapp(job);
+  if (!url) return null;
+  const sent = job.dayBeforeNoticeAt
+    ? new Date(job.dayBeforeNoticeAt).toLocaleString('es-ES', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '';
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <button
+        onClick={() => { window.open(url, '_blank'); onSent(job); }}
+        className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold cursor-pointer border ${
+          sent ? 'bg-white text-emerald-800 border-emerald-300' : 'bg-emerald-600 text-white border-emerald-600'
+        }`}
+      >
+        💬 {job.date === tomorrowIso() ? (sent ? 'Recordar mañana por WhatsApp' : 'Avisar de mañana por WhatsApp') : (sent ? 'Volver a avisar por WhatsApp' : 'Avisar del día por WhatsApp')}
+      </button>
+      {sent && <span className="text-[10px] text-emerald-700 whitespace-nowrap">✓ Avisado {sent}</span>}
+    </div>
+  );
+};
 
 export const ServicesView: React.FC<ServicesViewProps> = ({
   services,
@@ -56,12 +104,16 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
   onAssignJob,
   onOpenWorkOrder,
   onScheduleReturn,
+  onNoticeSent,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedDay, setSelectedDay] = useState<'day' | 'upcoming' | 'all'>('day');
   const [undatedTab, setUndatedTab] = useState(false); // "Pendientes de asignar": services without a date yet
   const undatedCount = services.filter((s) => !s.date).length;
+  const tomorrowJobs = services.filter((s) => s.date === tomorrowIso() && !closedJob(s));
+  // Still to remind: never told, or told on an earlier day (the week's notice); the reminder goes the day before
+  const tomorrowPending = tomorrowJobs.filter((s) => s.customerPhone && (!s.dayBeforeNoticeAt || isoDay(new Date(s.dayBeforeNoticeAt)) < isoDay(new Date()))).length;
   // Day shown in the list; starts on the app's selected day and can be picked from the calendar
   const [filterDate, setFilterDate] = useState(selectedDate);
   useEffect(() => setFilterDate(selectedDate), [selectedDate]);
@@ -208,6 +260,9 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
                 <Phone className="w-3.5 h-3.5 text-slate-400" />
                 <span>{job.customerPhone}</span>
               </div>
+            )}
+            {job.date && !closedJob(job) && job.date >= isoDay(new Date()) && (
+              <NoticeButton job={job} onSent={onNoticeSent} />
             )}
           </div>
 
@@ -399,6 +454,22 @@ export const ServicesView: React.FC<ServicesViewProps> = ({
             📋 Pendientes de asignar ({undatedCount})
           </button>
         </div>
+        {tomorrowJobs.length > 0 && (
+          <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-xs text-emerald-900">
+            <span>
+              💬 <b>Mañana:</b> {tomorrowJobs.length} {tomorrowJobs.length === 1 ? 'servicio' : 'servicios'}
+              {tomorrowPending > 0 ? <>, <b>{tomorrowPending} sin avisar</b> al cliente</> : ', todos avisados'}
+            </span>
+            {!(selectedDay === 'day' && filterDate === tomorrowIso() && !undatedTab) && (
+              <button
+                onClick={() => { setUndatedTab(false); setSelectedDay('day'); setFilterDate(tomorrowIso()); }}
+                className="px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold whitespace-nowrap cursor-pointer"
+              >
+                Ver y avisar
+              </button>
+            )}
+          </div>
+        )}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Search Bar */}
           <div className="relative flex-1">
