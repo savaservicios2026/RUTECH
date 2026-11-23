@@ -21,6 +21,7 @@ interface DeliveriesViewProps {
   onMarkMissing: (delivery: Delivery, items: string | null) => void;
   onMissingNote: (delivery: Delivery, patch: { ordered?: boolean; note?: string }) => void;
   onChecklist: (delivery: Delivery, checklist: Checklist) => void;
+  onPrepareAtNave: (delivery: Delivery, on: boolean) => void;
   userEmail?: string;
   canMarkReady: boolean; // office and technicians
   showToast: (msg: string) => void;
@@ -144,6 +145,7 @@ const DeliveryForm: React.FC<{
       location = { address: form.address.trim(), lat: p.lat, lng: p.lng, zone, approximate: !found || found.approximate };
     }
     onSave({
+      ...(initial || {}),
       id: deliveryId,
       createdAt: initial?.createdAt || new Date().toISOString(),
       facility: form.facility.trim(),
@@ -239,6 +241,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
   onMarkMissing,
   onMissingNote,
   onChecklist,
+  onPrepareAtNave,
   userEmail,
   canMarkReady,
 }) => {
@@ -334,12 +337,21 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
               <div
                 key={d.id}
                 className={`rounded-xl border p-4 shadow-xs space-y-3 text-sm ${
-                  toWarehouse(d.location.address) ? 'bg-blue-100 border-blue-400' : 'bg-white border-slate-200'
+                  toWarehouse(d.location.address) || d.prepareAtNave ? 'bg-blue-100 border-blue-400' : 'bg-white border-slate-200'
                 }`}
               >
-                {toWarehouse(d.location.address) && (
+                {toWarehouse(d.location.address) ? (
                   <div className="text-xs font-bold text-blue-800">🏭 Entrega en la nave (Rúa do Seixo, Carballo)</div>
-                )}
+                ) : d.prepareAtNave ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs font-bold text-blue-800">🏭 Preparar pedido en la nave</div>
+                    {canEdit && status !== 'entregada' && (
+                      <button onClick={() => onPrepareAtNave(d, false)} className="text-[11px] text-blue-700 underline cursor-pointer">Quitar</button>
+                    )}
+                  </div>
+                ) : canEdit && status !== 'entregada' ? (
+                  <button onClick={() => onPrepareAtNave(d, true)} className="w-full py-1.5 rounded-lg border border-blue-300 bg-blue-50 text-blue-800 text-xs font-semibold cursor-pointer">🏭 Preparar pedido en Nave</button>
+                ) : null}
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="font-bold text-slate-900">{d.facility || d.customerName}</div>

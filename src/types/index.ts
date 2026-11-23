@@ -347,6 +347,7 @@ export interface Delivery {
     notes?: { text: string; at: string; by?: string }[]; // office notes on the missing material
   } | null; // material a technician found missing (Pablo, 2026-11-20)
   checklist?: DeliveryChecklist | null; // articles read from the attached quote, ticked while loading
+  prepareAtNave?: boolean; // the order is prepared at the warehouse even if delivered elsewhere (Pablo, 2026-11-23)
 }
 
 export interface DeliveryChecklistItem {

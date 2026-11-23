@@ -1324,6 +1324,10 @@ export default function App() {
             onMarkReady={markDeliveryReady}
             onMarkMissing={markDeliveryMissing}
             onMissingNote={updateDeliveryMissing}
+            onPrepareAtNave={(d, on) => {
+              if (access.role !== 'oficina') return showToast(READ_ONLY_MESSAGE);
+              updateDelivery(d.id, { prepareAtNave: on });
+            }}
             onChecklist={(d, checklist) => {
               if (access.role !== 'oficina' && access.role !== 'tecnico') return showToast(READ_ONLY_MESSAGE);
               updateDelivery(d.id, { checklist });
