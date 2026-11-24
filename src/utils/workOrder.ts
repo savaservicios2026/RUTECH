@@ -70,6 +70,11 @@ async function shrinkPhotos(photos: string[], budget = 750_000, maxSide = 720, q
 
 export function workOrderHtml(job: ServiceJob, technicianNames: string, company: CompanyInfo, autoPrint = false, photos: string[] = [], documents: string[] = []) {
   const r = job.inSituReport || {};
+  // The work order's signature and name, copied onto every attached document (Pablo, 2026-11-24)
+  const signedOn = r.signedDate ? new Date(`${r.signedDate}T12:00:00`).toLocaleDateString('es-ES') : '';
+  const stamp = r.customerSignature || r.customerSignatureName
+    ? `<div class="stamp">${r.customerSignature ? `<img src="${r.customerSignature}" alt="Firma">` : ''}<div>${escapeHtml(r.customerSignatureName || '')}${signedOn ? ` · ${signedOn}` : ''}</div></div>`
+    : '';
   const row = (label: string, value?: string) =>
     value ? `<tr><th>${label}</th><td>${escapeHtml(value).replace(/\n/g, '<br>')}</td></tr>` : '';
   const outcome =
@@ -102,7 +107,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}th{text-align:left;
 th,td{padding:7px 8px;border-bottom:1px solid #e2e8f0}h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:#1f4f94;margin:20px 0 6px}
 .ok{color:#047857;font-weight:700}.back{color:#b45309;font-weight:700}
 .sign{border:1px solid #cbd5e1;border-radius:8px;padding:8px;display:inline-block;min-width:260px}.sign img{max-width:320px;height:90px;object-fit:contain;display:block}
-.doc{break-before:page}.doc img{width:100%;border:1px solid #e2e8f0}.photos{display:grid;grid-template-columns:1fr 1fr;gap:8px}.photos img{width:100%;max-height:330px;object-fit:contain;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;break-inside:avoid}
+.doc{break-before:page}.docwrap{position:relative}.docwrap>img{width:100%;border:1px solid #e2e8f0;display:block}.stamp{position:absolute;right:10px;bottom:10px;background:rgba(255,255,255,.9);border:1px solid #94a3b8;border-radius:6px;padding:4px 8px;font-size:11px;color:#0f172a;text-align:center;max-width:45%}.stamp img{height:56px;max-width:100%;object-fit:contain;display:block;margin:0 auto}.photos{display:grid;grid-template-columns:1fr 1fr;gap:8px}.photos img{width:100%;max-height:330px;object-fit:contain;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;break-inside:avoid}
 @media print{body{margin:12mm}}
 </style></head><body>
 <header><img src="${logoUrl}" alt="SAVA"><div class="company">${companyBlock}</div></header>
@@ -121,7 +126,7 @@ ${row('Observaciones', r.technicalNotes)}${row('Material utilizado', (r.material
 <h2>Conformidad del cliente</h2>
 <div class="sign">${r.customerSignature ? `<img src="${r.customerSignature}" alt="Firma">` : r.signaturePending ? '<div style="height:90px;display:flex;align-items:center;justify-content:center;color:#b45309;font-weight:700">Pendiente de la firma del cliente</div>' : '<div style="height:90px"></div>'}
 <div>${escapeHtml(r.customerSignatureName || '')}${r.signedDate ? ` · ${new Date(`${r.signedDate}T12:00:00`).toLocaleDateString('es-ES')}` : ''}</div></div>
-${documents.map((d, i) => `<div class="doc"><h2>Documento adjunto${documents.length > 1 ? ` ${i + 1}` : ''}</h2><img src="${d}" alt="Documento"></div>`).join('')}
+${documents.map((d, i) => `<div class="doc"><h2>Documento adjunto${documents.length > 1 ? ` ${i + 1}` : ''}</h2><div class="docwrap"><img src="${d}" alt="Documento">${stamp}</div></div>`).join('')}
 ${photos.length ? `<h2>Fotos</h2><div class="photos">${photos.map((p) => `<img src="${p}" alt="Foto">`).join('')}</div>` : ''}
 <footer>${escapeHtml(footerLine)}</footer>
 ${autoPrint ? '<script>window.onload=()=>setTimeout(()=>window.print(),300)</script>' : ''}
@@ -143,6 +148,42 @@ export function printWorkOrder(job: ServiceJob, technicianNames: string, company
     win.document.close();
   });
   return true;
+}
+
+
+// The work order's signature and name in the bottom right corner of an attached document page
+async function stampSignature(pdf: import('jspdf').jsPDF, job: ServiceJob, right: number, bottom: number) {
+  const r = job.inSituReport || {};
+  if (!r.customerSignature && !r.customerSignatureName) return;
+  const signedOn = r.signedDate ? new Date(`${r.signedDate}T12:00:00`).toLocaleDateString('es-ES') : '';
+  const label = `${r.customerSignatureName || ''}${signedOn ? ` · ${signedOn}` : ''}`.trim();
+  const sig = r.customerSignature
+    ? await new Promise<{ w: number; h: number } | null>((resolve) => {
+        const im = new Image();
+        im.onload = () => resolve({ w: im.width, h: im.height });
+        im.onerror = () => resolve(null);
+        im.src = r.customerSignature!;
+      })
+    : null;
+  const boxW = 62;
+  const sigH = sig ? 18 : 0;
+  const boxH = sigH + (label ? 6 : 0) + 4;
+  const x = right - boxW - 3;
+  const y = bottom - boxH - 3;
+  pdf.setFillColor(255, 255, 255);
+  pdf.setDrawColor(148, 163, 184);
+  pdf.roundedRect(x, y, boxW, boxH, 1.5, 1.5, 'FD');
+  if (sig) {
+    const k = Math.min((boxW - 4) / sig.w, sigH / sig.h);
+    try {
+      pdf.addImage(r.customerSignature!, 'PNG', x + (boxW - sig.w * k) / 2, y + 2, sig.w * k, sig.h * k);
+    } catch {}
+  }
+  if (label) {
+    pdf.setFontSize(8);
+    pdf.setTextColor(15, 23, 42);
+    pdf.text(label, x + boxW / 2, y + sigH + 6, { align: 'center', maxWidth: boxW - 4 });
+  }
 }
 
 /** Builds the work order as a real PDF file (A4) from the same page. */
@@ -185,9 +226,13 @@ export async function workOrderPdf(job: ServiceJob, technicianNames: string, com
         im.src = docs[i];
       });
       const k = Math.min((pageW - 16) / dims.w, (pageH - 22) / dims.h);
+      const dx = (pageW - dims.w * k) / 2;
+      const dw = dims.w * k;
+      const dh = dims.h * k;
       try {
-        pdf.addImage(docs[i], 'JPEG', (pageW - dims.w * k) / 2, 14, dims.w * k, dims.h * k);
+        pdf.addImage(docs[i], 'JPEG', dx, 14, dw, dh);
       } catch {}
+      await stampSignature(pdf, job, dx + dw, 14 + dh);
     }
     // Photos on their own pages, two per row and three rows per page, never cut in half
     const margin = 12;

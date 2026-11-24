@@ -75,7 +75,7 @@ export const DocumentsBox: React.FC<{ serviceId: string }> = ({ serviceId }) => 
     <div className="space-y-2 bg-indigo-50 border border-indigo-200 rounded-xl p-2.5">
       <div>
         <div className="font-bold text-slate-700 text-[11px]">Documentos del proveedor</div>
-        <div className="text-[11px] text-slate-500">Haz una foto o adjunta el PDF, escribe y firma encima. Se incluye dentro de nuestro parte.</div>
+        <div className="text-[11px] text-slate-500">Haz una foto o adjunta el PDF. Se incluye dentro de nuestro parte y lleva la misma firma y nombre del cliente que el parte.</div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <button
