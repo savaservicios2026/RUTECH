@@ -26,17 +26,32 @@ export async function loadWorkOrderPhotos(job: ServiceJob): Promise<string[]> {
   }
 }
 
-// Supplier documents edited and signed in the work order (section "documento"), one image per page
+const isPdfAttachment = (a: Attachment) => a.type === 'application/pdf' || /\.pdf$/i.test(a.name || '');
+
+/**
+ * Documents that go inside the work order, one image per page, each one carrying the customer's signature:
+ * first the files attached when the service was created (photos and PDFs), then the supplier documents
+ * edited and signed in the work order (section "documento").
+ */
 export async function loadWorkOrderDocuments(job: ServiceJob): Promise<string[]> {
   const db = getFirestoreDb();
   if (!db) return [];
   try {
     const snap = await getDocs(query(collection(db, 'attachments'), where('serviceId', '==', job.id.split('~')[0])));
-    return snap.docs
-      .map((d) => d.data() as Attachment)
-      .filter((a) => a.section === 'documento' && (a.type || '').startsWith('image/') && a.dataUrl)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-      .map((a) => a.dataUrl);
+    const all = snap.docs.map((d) => d.data() as Attachment).filter((a) => a.dataUrl);
+    const byDate = (a: Attachment, b: Attachment) => (a.createdAt || '').localeCompare(b.createdAt || '');
+    const pages: string[] = [];
+    for (const a of all.filter((x) => x.section === 'servicio').sort(byDate)) {
+      try {
+        if ((a.type || '').startsWith('image/')) pages.push(a.dataUrl);
+        else if (isPdfAttachment(a)) {
+          const { pdfToImages } = await import('./documents');
+          pages.push(...(await pdfToImages(await (await fetch(a.dataUrl)).arrayBuffer())));
+        }
+      } catch {}
+    }
+    pages.push(...all.filter((a) => a.section === 'documento' && (a.type || '').startsWith('image/')).sort(byDate).map((a) => a.dataUrl));
+    return pages;
   } catch {
     return [];
   }

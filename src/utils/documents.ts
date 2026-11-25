@@ -25,11 +25,11 @@ export function canvasToFittingJpeg(source: HTMLCanvasElement): string {
 }
 
 /** Each page of a PDF as an image (long side about 1600 px). Only the first pages if it is long. */
-async function pdfToImages(file: File): Promise<string[]> {
+export async function pdfToImages(file: File | ArrayBuffer): Promise<string[]> {
   const pdfjs = await import('pdfjs-dist');
   const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-  const pdf = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const pdf = await pdfjs.getDocument({ data: new Uint8Array(file instanceof ArrayBuffer ? file : await file.arrayBuffer()) }).promise;
   const pages: string[] = [];
   for (let n = 1; n <= Math.min(pdf.numPages, MAX_DOC_PAGES); n++) {
     const page = await pdf.getPage(n);
